@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import type { RowData } from '@tanstack/react-table';
+import React, { useRef, useState } from 'react';
 import {
   Bookmark,
   Columns3,
@@ -10,14 +11,15 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import type { DataGridController } from '../store/use-data-grid';
+import type { SiftController } from '../store/use-data-grid';
 import type { GridDensity } from '../types/grid.types';
 import { exportRowsToCsv } from '../utils/export-csv';
 import { FilterCommandMenu } from './filter-command-menu';
 import { cn } from '../utils/cn';
+import { SiftPopover } from './sift-popover';
 
-interface GridToolbarProps<TData> {
-  grid: DataGridController<TData>;
+interface GridToolbarProps<TData extends RowData> {
+  grid: SiftController<TData>;
   title?: string;
   exportFilename?: string;
   quickFilterOpen: boolean;
@@ -26,9 +28,11 @@ interface GridToolbarProps<TData> {
   ruleBuilderOpen: boolean;
   onToggleRuleBuilder: () => void;
   onOpenColumnManager: () => void;
+  showHeaderFilters: boolean;
+  onToggleHeaderFilters: () => void;
 }
 
-export function GridToolbar<TData>({
+export function GridToolbar<TData extends RowData>({
   grid,
   title,
   exportFilename = 'export.csv',
@@ -38,23 +42,16 @@ export function GridToolbar<TData>({
   ruleBuilderOpen,
   onToggleRuleBuilder,
   onOpenColumnManager,
+  showHeaderFilters, onToggleHeaderFilters,
 }: GridToolbarProps<TData>) {
   const [viewsOpen, setViewsOpen] = useState(false);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const [newViewName, setNewViewName] = useState('');
+  const [exportSelectedOnly, setExportSelectedOnly] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Cmd/Ctrl + K opens Quick Filter Command Menu; '/' focuses search
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        onQuickFilterOpenChange(!quickFilterOpen, null);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [quickFilterOpen, onQuickFilterOpenChange]);
+  const [filterAnchor, setFilterAnchor] = useState<HTMLButtonElement | null>(null);
+  const [groupAnchor, setGroupAnchor] = useState<HTMLElement | null>(null);
+  const [viewsAnchor, setViewsAnchor] = useState<HTMLElement | null>(null);
 
   const groupableColumns = grid.table
     .getAllLeafColumns()
@@ -72,31 +69,37 @@ export function GridToolbar<TData>({
       .getVisibleLeafColumns()
       .filter((c) => c.id !== '__select__' && c.columnDef.meta?.label);
 
-    const rows = grid.table.getFilteredRowModel().rows.map((r) => r.original);
+    const rows = exportSelectedOnly
+      ? grid.table.getSelectedRowModel().rows
+      : grid.table.getFilteredRowModel().rows;
+    if (exportSelectedOnly && rows.length === 0) return;
     exportRowsToCsv(
       rows,
       visibleCols.map((col) => ({
         id: col.id,
         label: col.columnDef.meta?.label ?? col.id,
-        getValue: (original) => (original as Record<string, unknown>)[col.id],
+        getValue: (row) => {
+          const value = row.getValue(col.id);
+          return col.columnDef.meta?.formatValue?.(value) ?? value;
+        },
       })),
       exportFilename
     );
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--sift-border)] bg-white px-4 py-3 dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
       {/* Left: Title + Global Search + Dual Filter Triggers */}
       <div className="flex flex-wrap items-center gap-2">
         {title && (
-          <h1 className="mr-2 text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          <h1 className="mr-2 text-sm font-semibold tracking-tight text-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]">
             {title}
           </h1>
         )}
 
         {/* Instant Global Search */}
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+          <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[var(--sift-muted)]" />
           <input
             ref={searchInputRef}
             type="text"
@@ -104,16 +107,16 @@ export function GridToolbar<TData>({
             onChange={(e) => grid.setGlobalFilter(e.target.value)}
             placeholder="Search rows..."
             className={cn(
-              'w-52 rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-7 text-xs text-slate-900',
-              'transition-all focus:w-64 focus:border-indigo-500 focus:bg-white focus:outline-none',
-              'dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+              'w-52 rounded-lg border border-[var(--sift-border)] bg-[var(--sift-surface-subtle)] py-1.5 pl-8 pr-7 text-xs text-[var(--sift-ink)]',
+              'transition-all focus:w-64 focus:border-[var(--sift-accent)] focus:bg-white focus:outline-none',
+              'dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]'
             )}
           />
           {grid.globalFilter && (
             <button
               type="button"
               onClick={() => grid.setGlobalFilter('')}
-              className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+              className="absolute right-2 top-2 text-[var(--sift-muted)] hover:text-[var(--sift-muted)]"
               aria-label="Clear search"
             >
               <X className="h-3.5 w-3.5" />
@@ -125,23 +128,25 @@ export function GridToolbar<TData>({
         <div className="relative">
           <button
             type="button"
+            ref={setFilterAnchor}
             onClick={() => onQuickFilterOpenChange(!quickFilterOpen, null)}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
               quickFilterOpen
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200'
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900'
+                ? 'border-[var(--sift-accent)] bg-[var(--sift-accent-subtle)] text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+                : 'border-[var(--sift-border)] bg-white text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]'
             )}
           >
-            <Filter className="h-3.5 w-3.5 text-indigo-500" />
+            <Filter className="h-3.5 w-3.5 text-[var(--sift-accent)]" />
             <span>Filter</span>
-            <kbd className="hidden rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-400 sm:inline dark:bg-slate-800">
+            <kbd className="hidden rounded bg-[var(--sift-surface-subtle)] px-1 py-0.5 font-mono text-[10px] text-[var(--sift-muted)] sm:inline dark:bg-[var(--sift-ink)]">
               ⌘K
             </kbd>
           </button>
 
           <FilterCommandMenu
             grid={grid}
+            anchor={filterAnchor}
             open={quickFilterOpen}
             initialColumnId={quickFilterColumnId}
             onOpenChange={(open) => onQuickFilterOpenChange(open, null)}
@@ -155,14 +160,14 @@ export function GridToolbar<TData>({
           className={cn(
             'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
             ruleBuilderOpen || grid.filterGroup.rules.length > 0
-              ? 'border-indigo-200 bg-indigo-50/70 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-300'
-              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900'
+              ? 'border-[var(--sift-accent-border)] bg-[var(--sift-accent-subtle)]/70 text-[var(--sift-accent-strong)] dark:border-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)]/60 dark:text-[var(--sift-accent-border)]'
+              : 'border-[var(--sift-border)] bg-white text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]'
           )}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
           <span>Rules</span>
           {grid.filterGroup.rules.length > 0 && (
-            <span className="rounded-full bg-indigo-600 px-1.5 py-0.2 text-[10px] font-semibold text-white">
+            <span className="rounded-full bg-[var(--sift-accent)] px-1.5 py-0.2 text-[10px] font-semibold text-white">
               {grid.filterGroup.rules.length}
             </span>
           )}
@@ -173,26 +178,26 @@ export function GridToolbar<TData>({
           <div className="relative">
             <button
               type="button"
-              onClick={() => setGroupMenuOpen((v) => !v)}
+              onClick={(event) => { setGroupAnchor(event.currentTarget); setGroupMenuOpen((v) => !v); }}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
                 grid.grouping.length > 0
-                  ? 'border-indigo-200 bg-indigo-50/70 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-300'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900'
+                  ? 'border-[var(--sift-accent-border)] bg-[var(--sift-accent-subtle)]/70 text-[var(--sift-accent-strong)] dark:border-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)]/60 dark:text-[var(--sift-accent-border)]'
+                  : 'border-[var(--sift-border)] bg-white text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]'
               )}
             >
               <FolderTree className="h-3.5 w-3.5" />
               <span>Group</span>
               {grid.grouping.length > 0 && (
-                <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] text-white">
+                <span className="rounded-full bg-[var(--sift-accent)] px-1.5 text-[10px] text-white">
                   {grid.grouping.length}
                 </span>
               )}
             </button>
 
             {groupMenuOpen && (
-              <div className="absolute left-0 top-full z-40 mt-1.5 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-950">
-                <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <SiftPopover anchor={groupAnchor} onDismiss={() => setGroupMenuOpen(false)}><div className="w-52 rounded-xl border border-[var(--sift-border)] bg-white p-1.5 shadow-xl dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
+                <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--sift-muted)]">
                   Group Breadcrumb Path
                 </div>
                 {groupableColumns.map((col) => {
@@ -211,13 +216,13 @@ export function GridToolbar<TData>({
                       className={cn(
                         'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs',
                         active
-                          ? 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200'
-                          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900'
+                          ? 'bg-[var(--sift-accent-subtle)] font-semibold text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+                          : 'text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]'
                       )}
                     >
                       <span>{col.columnDef.meta?.label ?? col.id}</span>
                       {active && (
-                        <span className="font-mono text-[10px] text-indigo-500">
+                        <span className="font-mono text-[10px] text-[var(--sift-accent)]">
                           #{grid.grouping.indexOf(col.id) + 1}
                         </span>
                       )}
@@ -225,6 +230,7 @@ export function GridToolbar<TData>({
                   );
                 })}
               </div>
+              </SiftPopover>
             )}
           </div>
         )}
@@ -236,25 +242,25 @@ export function GridToolbar<TData>({
         <div className="relative">
           <button
             type="button"
-            onClick={() => setViewsOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+            onClick={(event) => { setViewsAnchor(event.currentTarget); setViewsOpen((v) => !v); }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--sift-border)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
           >
-            <Bookmark className="h-3.5 w-3.5 text-slate-400" />
+            <Bookmark className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
             <span>Views</span>
             {grid.savedViews.length > 0 && (
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-[var(--sift-muted)]">
                 ({grid.savedViews.length})
               </span>
             )}
           </button>
 
           {viewsOpen && (
-            <div className="absolute right-0 top-full z-40 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950">
-              <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <SiftPopover anchor={viewsAnchor} placement="bottom-end" onDismiss={() => setViewsOpen(false)}><div className="w-64 rounded-xl border border-[var(--sift-border)] bg-white p-2 shadow-xl dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
+              <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--sift-muted)]">
                 Saved Views
               </div>
               {grid.savedViews.length === 0 ? (
-                <p className="px-2 py-2 text-xs text-slate-400">
+                <p className="px-2 py-2 text-xs text-[var(--sift-muted)]">
                   Save your current filters, sort, and columns as a reusable preset.
                 </p>
               ) : (
@@ -265,8 +271,8 @@ export function GridToolbar<TData>({
                       className={cn(
                         'flex items-center justify-between rounded-lg px-2 py-1.5 text-xs',
                         grid.activeViewId === view.id
-                          ? 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-900'
+                          ? 'bg-[var(--sift-accent-subtle)] font-semibold text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+                          : 'hover:bg-[var(--sift-surface-subtle)] dark:hover:bg-[var(--sift-ink)]'
                       )}
                     >
                       <button
@@ -282,7 +288,7 @@ export function GridToolbar<TData>({
                       <button
                         type="button"
                         onClick={() => grid.deleteSavedView(view.id)}
-                        className="ml-2 text-slate-400 hover:text-rose-600"
+                        className="ml-2 text-[var(--sift-muted)] hover:text-rose-600"
                         aria-label={`Delete ${view.name}`}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -293,7 +299,7 @@ export function GridToolbar<TData>({
               )}
 
               <form
-                className="flex gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800"
+                className="flex gap-1.5 border-t border-[var(--sift-surface-subtle)] pt-2 dark:border-[var(--sift-ink)]"
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!newViewName.trim()) return;
@@ -306,22 +312,23 @@ export function GridToolbar<TData>({
                   value={newViewName}
                   onChange={(e) => setNewViewName(e.target.value)}
                   placeholder="Save current view..."
-                  className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+                  className="flex-1 rounded-md border border-[var(--sift-border)] px-2 py-1 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
                 />
                 <button
                   type="submit"
-                  className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500"
+                  className="rounded-md bg-[var(--sift-accent)] px-2.5 py-1 text-xs font-medium text-white hover:bg-[var(--sift-accent)]"
                 >
                   Save
                 </button>
               </form>
             </div>
+            </SiftPopover>
           )}
         </div>
 
         {/* Density Segmented Switch */}
         <div
-          className="hidden items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 md:inline-flex dark:border-slate-800 dark:bg-slate-900"
+          className="hidden items-center rounded-lg border border-[var(--sift-border)] bg-[var(--sift-surface-subtle)] p-0.5 md:inline-flex dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
           role="group"
           aria-label="Row density"
         >
@@ -333,8 +340,8 @@ export function GridToolbar<TData>({
               className={cn(
                 'rounded-md px-2 py-1 text-[11px] font-medium capitalize transition-colors',
                 grid.density === d
-                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-slate-100'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                  ? 'bg-white text-[var(--sift-ink)] shadow-2xs dark:bg-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]'
+                  : 'text-[var(--sift-muted)] hover:text-[var(--sift-ink)] dark:text-[var(--sift-muted)]'
               )}
             >
               {d.slice(0, 4)}
@@ -342,27 +349,36 @@ export function GridToolbar<TData>({
           ))}
         </div>
 
+        <button type="button" aria-pressed={showHeaderFilters} onClick={onToggleHeaderFilters}
+          className="rounded-lg border border-[var(--sift-border)] px-2.5 py-1.5 text-xs text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:text-[var(--sift-border)]">
+          Header filters
+        </button>
         {/* Column Studio Button */}
         <button
           type="button"
           onClick={onOpenColumnManager}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--sift-border)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
         >
-          <Columns3 className="h-3.5 w-3.5 text-slate-400" />
+          <Columns3 className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
           <span>Columns</span>
-          <span className="rounded bg-slate-100 px-1.5 py-0.2 font-mono text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+          <span className="rounded bg-[var(--sift-surface-subtle)] px-1.5 py-0.2 font-mono text-[10px] text-[var(--sift-muted)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-muted)]">
             {visibleCount}/{totalManageable}
           </span>
         </button>
 
+        <label className="inline-flex items-center gap-1.5 text-xs text-[var(--sift-muted)] dark:text-[var(--sift-border)]">
+          <input type="checkbox" checked={exportSelectedOnly} onChange={(event) => setExportSelectedOnly(event.target.checked)} aria-label="Export selected rows only" />
+          Selected only
+        </label>
         {/* CSV Export */}
         <button
           type="button"
           onClick={handleExportCsv}
-          title="Export filtered rows to CSV"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+          disabled={exportSelectedOnly && grid.table.getSelectedRowModel().rows.length === 0}
+          title={exportSelectedOnly ? "Export selected rows to CSV" : "Export filtered rows to CSV"}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--sift-border)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
         >
-          <Download className="h-3.5 w-3.5 text-slate-400" />
+          <Download className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
           <span className="hidden sm:inline">Export</span>
         </button>
       </div>

@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
@@ -7,26 +8,30 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import type { DataGridController } from '../store/use-data-grid';
+import type { SiftController } from '../store/use-data-grid';
 import type { FilterOption, FilterVariant } from '../types/grid.types';
 import { cn } from '../utils/cn';
+import { SiftPopover } from './sift-popover';
 
-interface FilterCommandMenuProps<TData> {
-  grid: DataGridController<TData>;
+interface FilterCommandMenuProps<TData extends RowData> {
+  grid: SiftController<TData>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Optional column to jump directly into when triggered from a column header */
   initialColumnId?: string | null;
+  anchor?: HTMLElement | null;
 }
 
-export function FilterCommandMenu<TData>({
+export function FilterCommandMenu<TData extends RowData>({
   grid,
   open,
   onOpenChange,
   initialColumnId = null,
+  anchor = null,
 }: FilterCommandMenuProps<TData>) {
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(initialColumnId);
   const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
   const [minVal, setMinVal] = useState('');
   const [maxVal, setMaxVal] = useState('');
   const [textDraft, setTextDraft] = useState('');
@@ -37,6 +42,7 @@ export function FilterCommandMenu<TData>({
     if (open) {
       setSelectedColumnId(initialColumnId);
       setQuery('');
+      setActiveIndex(0);
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [open, initialColumnId]);
@@ -81,6 +87,8 @@ export function FilterCommandMenu<TData>({
     );
   }, [filterableColumns, query]);
 
+  useEffect(() => { setActiveIndex(0); }, [query, selectedColumnId]);
+
   const activeColumn = selectedColumnId
     ? grid.table.getColumn(selectedColumnId)
     : undefined;
@@ -90,7 +98,7 @@ export function FilterCommandMenu<TData>({
   // Live faceted counts from TanStack Table V9 (auto-narrowed by other active filters!)
   const facetedEntries = useMemo(() => {
     if (!activeColumn) return [];
-    const facetMap = activeColumn.getFacetedUniqueValues();
+    const facetMap = grid.manualMode ? new Map(Object.entries(grid.facetCounts?.[activeColumn.id] ?? {})) : activeColumn.getFacetedUniqueValues();
     const staticOptions = activeColumn.columnDef.meta?.filterOptions;
 
     if (staticOptions && staticOptions.length > 0) {
@@ -114,7 +122,7 @@ export function FilterCommandMenu<TData>({
     });
 
     return derived.sort((a, b) => b.count - a.count);
-  }, [activeColumn]);
+  }, [activeColumn, grid.manualMode, grid.facetCounts]);
 
   const existingRule = useMemo(
     () =>
@@ -161,18 +169,19 @@ export function FilterCommandMenu<TData>({
     variant === 'number' ? activeColumn?.getFacetedMinMaxValues() : undefined;
 
   return (
+    <SiftPopover anchor={anchor} onDismiss={() => onOpenChange(false)}>
     <div
       ref={containerRef}
       role="dialog"
       aria-label="Quick filter command menu"
       className={cn(
-        'absolute left-0 top-full z-50 mt-1.5 w-80 overflow-hidden rounded-xl',
-        'border border-slate-200 bg-white shadow-xl ring-1 ring-black/5',
-        'dark:border-slate-800 dark:bg-slate-950'
+        'w-80 overflow-hidden rounded-xl',
+        'border border-[var(--sift-border)] bg-white shadow-xl ring-1 ring-black/5',
+        'dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]'
       )}
     >
       {/* Header / Search Bar */}
-      <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2.5 dark:border-slate-800">
+      <div className="flex items-center gap-2 border-b border-[var(--sift-surface-subtle)] px-3 py-2.5 dark:border-[var(--sift-ink)]">
         {activeColumn ? (
           <button
             type="button"
@@ -181,12 +190,12 @@ export function FilterCommandMenu<TData>({
               setQuery('');
               setTimeout(() => inputRef.current?.focus(), 10);
             }}
-            className="rounded px-1.5 py-0.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            className="rounded px-1.5 py-0.5 text-xs font-medium text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] hover:text-[var(--sift-ink)] dark:hover:bg-[var(--sift-ink)] dark:hover:text-[var(--sift-surface-subtle)]"
           >
             ← Back
           </button>
         ) : (
-          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <Search className="h-4 w-4 shrink-0 text-[var(--sift-muted)]" />
         )}
 
         <input
@@ -194,18 +203,33 @@ export function FilterCommandMenu<TData>({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="sift-command-options"
+          aria-activedescendant={!activeColumn ? `sift-command-item-${activeIndex}` : undefined}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault();
+              const available = activeColumn ? 0 : filteredColumns.length;
+              if (available) setActiveIndex((current) => (current + (event.key === 'ArrowDown' ? 1 : -1) + available) % available);
+            } else if (event.key === 'Enter' && !activeColumn && filteredColumns[activeIndex]) {
+              event.preventDefault();
+              setSelectedColumnId(filteredColumns[activeIndex].id);
+              setQuery('');
+            }
+          }}
           placeholder={
             activeColumn
               ? `Filter ${activeColumn.columnDef.meta?.label}...`
               : 'Filter by column...'
           }
-          className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
+          className="w-full bg-transparent text-sm text-[var(--sift-ink)] placeholder:text-[var(--sift-muted)] focus:outline-none dark:text-[var(--sift-surface-subtle)]"
         />
 
         <button
           type="button"
           onClick={() => onOpenChange(false)}
-          className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+          className="rounded p-0.5 text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] hover:text-[var(--sift-muted)] dark:hover:bg-[var(--sift-ink)]"
           aria-label="Close filter menu"
         >
           <X className="h-3.5 w-3.5" />
@@ -214,16 +238,16 @@ export function FilterCommandMenu<TData>({
 
       {/* Step 1: Pick a Column */}
       {!activeColumn && (
-        <div className="max-h-72 overflow-y-auto p-1.5">
-          <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <div id="sift-command-options" role="listbox" className="max-h-72 overflow-y-auto p-1.5">
+          <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--sift-muted)]">
             Filterable Fields
           </div>
           {filteredColumns.length === 0 ? (
-            <div className="px-3 py-6 text-center text-xs text-slate-500">
+            <div className="px-3 py-6 text-center text-xs text-[var(--sift-muted)]">
               No matching columns found.
             </div>
           ) : (
-            filteredColumns.map((col) => {
+            filteredColumns.map((col, index) => {
               const Icon = col.columnDef.meta?.icon ?? Filter;
               const isActive = grid.filterGroup.rules.some(
                 (r) => r.columnId === col.id
@@ -231,6 +255,9 @@ export function FilterCommandMenu<TData>({
               return (
                 <button
                   key={col.id}
+                  id={`sift-command-item-${index}`}
+                  role="option"
+                  aria-selected={activeIndex === index}
                   type="button"
                   onClick={() => {
                     setSelectedColumnId(col.id);
@@ -238,20 +265,21 @@ export function FilterCommandMenu<TData>({
                   }}
                   className={cn(
                     'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
-                    'hover:bg-slate-100 dark:hover:bg-slate-900'
+                    'hover:bg-[var(--sift-surface-subtle)] dark:hover:bg-[var(--sift-ink)]',
+                    index === activeIndex && 'bg-[var(--sift-accent-subtle)] dark:bg-[var(--sift-accent-deep)]'
                   )}
                 >
-                  <span className="flex items-center gap-2.5 text-slate-700 dark:text-slate-200">
-                    <Icon className="h-4 w-4 text-slate-400" />
+                  <span className="flex items-center gap-2.5 text-[var(--sift-ink)] dark:text-[var(--sift-border)]">
+                    <Icon className="h-4 w-4 text-[var(--sift-muted)]" />
                     <span className="font-medium">
                       {col.columnDef.meta?.label ?? col.id}
                     </span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     {isActive && (
-                      <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                      <span className="h-2 w-2 rounded-full bg-[var(--sift-accent)]" />
                     )}
-                    <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                    <ChevronRight className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                   </span>
                 </button>
               );
@@ -280,8 +308,8 @@ export function FilterCommandMenu<TData>({
                       className={cn(
                         'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors',
                         checked
-                          ? 'bg-indigo-50 text-indigo-950 dark:bg-indigo-950/60 dark:text-indigo-100'
-                          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900'
+                          ? 'bg-[var(--sift-accent-subtle)] text-[var(--sift-accent-deep)] dark:bg-[var(--sift-accent-deep)]/60 dark:text-[var(--sift-accent-subtle)]'
+                          : 'text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]'
                       )}
                     >
                       <span className="flex items-center gap-2 truncate">
@@ -289,16 +317,16 @@ export function FilterCommandMenu<TData>({
                           className={cn(
                             'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
                             checked
-                              ? 'border-indigo-600 bg-indigo-600 text-white'
-                              : 'border-slate-300 dark:border-slate-700'
+                              ? 'border-[var(--sift-accent)] bg-[var(--sift-accent)] text-white'
+                              : 'border-[var(--sift-border)] dark:border-[var(--sift-ink)]'
                           )}
                         >
                           {checked && <Check className="h-3 w-3" />}
                         </span>
-                        {OptIcon && <OptIcon className="h-3.5 w-3.5 text-slate-400" />}
+                        {OptIcon && <OptIcon className="h-3.5 w-3.5 text-[var(--sift-muted)]" />}
                         <span className="truncate">{opt.label}</span>
                       </span>
-                      <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      <span className="ml-2 rounded-full bg-[var(--sift-surface-subtle)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--sift-muted)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-muted)]">
                         {opt.count}
                       </span>
                     </button>
@@ -325,12 +353,12 @@ export function FilterCommandMenu<TData>({
                     className={cn(
                       'flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm',
                       active
-                        ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200'
-                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900'
+                        ? 'bg-[var(--sift-accent-subtle)] font-medium text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+                        : 'text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]'
                     )}
                   >
                     <span>{opt.label}</span>
-                    {active && <Check className="h-4 w-4 text-indigo-600" />}
+                    {active && <Check className="h-4 w-4 text-[var(--sift-accent)]" />}
                   </button>
                 );
               })}
@@ -346,7 +374,7 @@ export function FilterCommandMenu<TData>({
                 onOpenChange(false);
               }}
             >
-              <label className="block text-xs font-medium text-slate-500">
+              <label className="block text-xs font-medium text-[var(--sift-muted)]">
                 Contains text
               </label>
               <input
@@ -356,7 +384,7 @@ export function FilterCommandMenu<TData>({
                 placeholder={
                   activeColumn.columnDef.meta?.placeholder ?? 'Type value...'
                 }
-                className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+                className="w-full rounded-lg border border-[var(--sift-border)] px-2.5 py-1.5 text-sm focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
               />
               <div className="flex justify-end gap-2">
                 <button
@@ -365,13 +393,13 @@ export function FilterCommandMenu<TData>({
                     grid.upsertColumnRule(activeColumn.id, 'contains', '');
                     onOpenChange(false);
                   }}
-                  className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="rounded-md px-2.5 py-1 text-xs font-medium text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] dark:hover:bg-[var(--sift-ink)]"
                 >
                   Clear
                 </button>
                 <button
                   type="submit"
-                  className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500"
+                  className="rounded-md bg-[var(--sift-accent)] px-3 py-1 text-xs font-medium text-white hover:bg-[var(--sift-accent)]"
                 >
                   Apply Filter
                 </button>
@@ -388,10 +416,10 @@ export function FilterCommandMenu<TData>({
                 onOpenChange(false);
               }}
             >
-              <div className="flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center justify-between text-xs text-[var(--sift-muted)]">
                 <span className="font-medium">Range ({variant})</span>
                 {facetedMinMax && (
-                  <span className="font-mono text-[11px] text-slate-400">
+                  <span className="font-mono text-[11px] text-[var(--sift-muted)]">
                     {facetedMinMax[0]} – {facetedMinMax[1]}
                   </span>
                 )}
@@ -404,7 +432,7 @@ export function FilterCommandMenu<TData>({
                   placeholder={
                     facetedMinMax ? `Min (${facetedMinMax[0]})` : 'Min'
                   }
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+                  className="w-full rounded-lg border border-[var(--sift-border)] px-2 py-1.5 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
                 />
                 <input
                   type={variant === 'date' ? 'date' : 'number'}
@@ -413,7 +441,7 @@ export function FilterCommandMenu<TData>({
                   placeholder={
                     facetedMinMax ? `Max (${facetedMinMax[1]})` : 'Max'
                   }
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+                  className="w-full rounded-lg border border-[var(--sift-border)] px-2 py-1.5 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -423,13 +451,13 @@ export function FilterCommandMenu<TData>({
                     grid.upsertColumnRule(activeColumn.id, 'between', []);
                     onOpenChange(false);
                   }}
-                  className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="rounded-md px-2.5 py-1 text-xs font-medium text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] dark:hover:bg-[var(--sift-ink)]"
                 >
                   Clear
                 </button>
                 <button
                   type="submit"
-                  className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500"
+                  className="rounded-md bg-[var(--sift-accent)] px-3 py-1 text-xs font-medium text-white hover:bg-[var(--sift-accent)]"
                 >
                   Apply Range
                 </button>
@@ -440,13 +468,14 @@ export function FilterCommandMenu<TData>({
       )}
 
       {/* Footer Hint */}
-      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-3 py-1.5 text-[11px] text-slate-400 dark:border-slate-800 dark:bg-slate-900/50">
+      <div className="flex items-center justify-between border-t border-[var(--sift-surface-subtle)] bg-[var(--sift-surface-subtle)]/80 px-3 py-1.5 text-[11px] text-[var(--sift-muted)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]/50">
         <span className="flex items-center gap-1">
-          <Sparkles className="h-3 w-3 text-indigo-500" />
+          <Sparkles className="h-3 w-3 text-[var(--sift-accent)]" />
           Live faceted counts
         </span>
         <span>ESC to close</span>
       </div>
     </div>
+    </SiftPopover>
   );
 }

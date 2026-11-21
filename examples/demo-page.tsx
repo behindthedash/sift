@@ -17,11 +17,11 @@ import {
   User,
 } from 'lucide-react';
 import {
-  DataGrid,
+  Sift,
   buildPostgresWhereClause,
   createBrowserUrlAdapter,
   type BulkAction,
-  type DataGridFeatures,
+  type SiftFeatures,
   type ServerQueryPayload,
 } from '../src';
 
@@ -100,7 +100,7 @@ export default function AccountsGridDemoPage() {
 
   const urlAdapter = useMemo(() => createBrowserUrlAdapter(), []);
 
-  const columns = useMemo<ColumnDef<DataGridFeatures, AccountRecord, unknown>[]>(
+  const columns = useMemo<ColumnDef<SiftFeatures, AccountRecord, unknown>[]>(
     () => [
       {
         accessorKey: 'company',
@@ -335,7 +335,7 @@ export default function AccountsGridDemoPage() {
         </button>
       </div>
 
-      <DataGrid
+      <Sift
         title="Customer Accounts"
         data={rows}
         columns={columns}

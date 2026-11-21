@@ -1,5 +1,14 @@
 import {
   tableFeatures,
+  metaHelper,
+  cellSelectionFeature,
+  cellSpanningFeature,
+  rowAggregationFeature,
+  aggregationFn_sum,
+  aggregationFn_mean,
+  aggregationFn_min,
+  aggregationFn_max,
+  aggregationFn_count,
   columnFilteringFeature,
   globalFilteringFeature,
   columnFacetingFeature,
@@ -28,7 +37,7 @@ import {
   type FilterFn,
 } from '@tanstack/react-table';
 import { evaluateFilterRule } from '../store/filter-engine';
-import type { DataGridColumnMeta, FilterRule } from '../types/grid.types';
+import type { SiftColumnMeta, FilterRule } from '../types/grid.types';
 
 /**
  * Custom TanStack Table V9 filterFn that understands structured FilterRule objects
@@ -58,7 +67,8 @@ export const smartRuleFilterFn: FilterFn<any, any> = (row, columnId, filterValue
  *
  * Note: In TanStack Table V9, each row model slot must appear after its prerequisite feature.
  */
-export const dataGridFeatures = tableFeatures({
+export const siftFeatures = tableFeatures({
+  columnMeta: metaHelper<SiftColumnMeta>(),
   // Filtering & Faceting
   columnFilteringFeature,
   globalFilteringFeature,
@@ -67,6 +77,12 @@ export const dataGridFeatures = tableFeatures({
   facetedRowModel: createFacetedRowModel(),
   facetedUniqueValues: createFacetedUniqueValues(),
   facetedMinMaxValues: createFacetedMinMaxValues(),
+
+  // Grid-like range selection, merged cells, and aggregation
+  cellSelectionFeature,
+  cellSpanningFeature,
+  rowAggregationFeature,
+  aggregationFns: { sum: aggregationFn_sum, mean: aggregationFn_mean, min: aggregationFn_min, max: aggregationFn_max, count: aggregationFn_count },
 
   // Grouping & Hierarchy (powers interactive breadcrumb drill-downs)
   columnGroupingFeature,
@@ -100,9 +116,5 @@ export const dataGridFeatures = tableFeatures({
   },
 });
 
-export type DataGridFeatures = typeof dataGridFeatures;
+export type SiftFeatures = typeof siftFeatures;
 
-declare module '@tanstack/react-table' {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TFeatures, TData, TValue> extends DataGridColumnMeta {}
-}

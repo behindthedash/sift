@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCreateAtom } from '@tanstack/react-store';
 import {
   useTable,
+  type RowData,
   type ColumnDef,
   type ColumnFiltersState,
   type ColumnOrderState,
@@ -11,9 +13,9 @@ import {
   type PaginationState,
   type RowSelectionState,
   type SortingState,
-  type VisibilityState,
+  type ColumnVisibilityState,
 } from '@tanstack/react-table';
-import { dataGridFeatures, type DataGridFeatures } from '../features/grid-features';
+import { siftFeatures, type SiftFeatures } from '../features/grid-features';
 import {
   evaluateFilterGroup,
   isRuleActive,
@@ -21,8 +23,8 @@ import {
   serializeGridQueryParams,
 } from './filter-engine';
 import type {
-  DataGridColumnMeta,
-  DataGridUrlAdapter,
+  SiftColumnMeta,
+  SiftUrlAdapter,
   FilterCombinator,
   FilterGroupState,
   FilterOperator,
@@ -33,9 +35,12 @@ import type {
 } from '../types/grid.types';
 import { getDefaultOperator } from '../types/grid.types';
 
-export interface UseDataGridOptions<TData> {
-  data: TData[];
-  columns: ColumnDef<DataGridFeatures, TData, unknown>[];
+export interface UseSiftOptions<TData extends RowData> {
+  /** In-memory JSON/JavaScript objects. No backend or SQL required. */
+  data?: TData[];
+  /** Optional async adapter for JSON APIs, GraphQL, document stores or SQL-backed services. */
+  dataSource?: import('./data-source').SiftDataSource<TData>;
+  columns: ColumnDef<SiftFeatures, TData, unknown>[];
   getRowId?: (originalRow: TData, index: number) => string;
   /** Enable server-side filtering, sorting, and pagination */
   manualMode?: boolean;
@@ -43,8 +48,14 @@ export interface UseDataGridOptions<TData> {
   totalRowCount?: number;
   /** Fired whenever query parameters change (debounced search included) */
   onServerQueryChange?: (payload: ServerQueryPayload) => void;
+  /** Debounce server search updates while other query changes remain immediate. */
+  searchDebounceMs?: number;
+  /** Server-returned facet counts for manual mode: { columnId: { value: count } }. */
+  facetCounts?: Record<string, Record<string, number>>;
+  /** Persist edited values; rejected promises roll back the optimistic update. */
+  onCellEdit?: (event: { rowId: string; columnId: string; oldValue: unknown; newValue: unknown; row: TData }) => void | Promise<void>;
   /** Optional URL synchronization adapter (works with browser URL, Next.js router, or nuqs) */
-  urlAdapter?: DataGridUrlAdapter;
+  urlAdapter?: SiftUrlAdapter;
   /** LocalStorage key for persisting Saved Views */
   storageKey?: string;
   /** Initial saved views provided by the host application or backend */
@@ -57,7 +68,7 @@ export interface UseDataGridOptions<TData> {
   initialColumnPinning?: ColumnPinningState;
 }
 
-function createBrowserUrlAdapter(): DataGridUrlAdapter {
+function createBrowserUrlAdapter(): SiftUrlAdapter {
   return {
     read: () => (typeof window !== 'undefined' ? window.location.search.slice(1) : ''),
     write: (qs) => {
@@ -68,25 +79,35 @@ function createBrowserUrlAdapter(): DataGridUrlAdapter {
   };
 }
 
-export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
+export function useSift<TData extends RowData>(options: UseSiftOptions<TData>) {
   const {
     data,
+    dataSource,
     columns,
     getRowId,
     manualMode = false,
     totalRowCount,
     onServerQueryChange,
+    searchDebounceMs = 300,
+    facetCounts,
+    onCellEdit,
     urlAdapter,
-    storageKey = 'your-org-data-grid:views',
+    storageKey = 'sift:views',
     initialViews = [],
     initialPageSize = 25,
     initialDensity = 'comfortable',
     initialColumnPinning = { start: [], end: [] },
   } = options;
 
+  const serverManaged = manualMode || Boolean(dataSource);
+  const [sourcePage, setSourcePage] = useState<import('./data-source').SiftDataPage<TData> | null>(null);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const sourceRows = dataSource ? (sourcePage?.rows ?? []) : (data ?? []);
+
   // Derive default column visibility & order from ColumnMeta
   const defaultColumnMeta = useMemo(() => {
-    const visibility: VisibilityState = {};
+    const visibility: ColumnVisibilityState = {};
     const order: ColumnOrderState = [];
 
     for (const col of columns) {
@@ -97,7 +118,7 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
           : undefined);
       if (!id) continue;
       order.push(id);
-      const meta = col.meta as DataGridColumnMeta | undefined;
+      const meta = col.meta as SiftColumnMeta | undefined;
       if (meta?.defaultHidden) {
         visibility[id] = false;
       }
@@ -112,20 +133,28 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
   }, [urlAdapter]);
 
   const [globalFilter, setGlobalFilter] = useState<string>(hydrated.search ?? '');
+  const [debouncedSearch, setDebouncedSearch] = useState(globalFilter);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(globalFilter), searchDebounceMs);
+    return () => window.clearTimeout(timeout);
+  }, [globalFilter, searchDebounceMs]);
+  const [optimistic, setOptimistic] = useState<Record<string, Record<string, unknown>>>({});
+  const [editError, setEditError] = useState<string | null>(null);
+  const cellSelectionAtom = useCreateAtom<import('@tanstack/react-table').CellSelectionState>([]);
   const [filterGroup, setFilterGroup] = useState<FilterGroupState>({
     combinator: hydrated.combinator ?? 'AND',
     rules: hydrated.rules ?? [],
   });
   const [sorting, setSorting] = useState<SortingState>(hydrated.sort ?? []);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(
     defaultColumnMeta.visibility
   );
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(defaultColumnMeta.order);
   const [columnPinning, setColumnPinning] = useState<ColumnPinningState>(initialColumnPinning);
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+  const columnSizingAtom = useCreateAtom<ColumnSizingState>({});
   const [grouping, setGrouping] = useState<GroupingState>(hydrated.grouping ?? []);
   const [expanded, setExpanded] = useState<ExpandedState>(true);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const rowSelectionAtom = useCreateAtom<RowSelectionState>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: hydrated.pageIndex ?? 0,
     pageSize: hydrated.pageSize ?? initialPageSize,
@@ -155,19 +184,33 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
     }
   }, [savedViews, storageKey]);
 
+  // Optimistic edits never mutate host data and can be independently rolled back.
+  const editableData = useMemo(() => sourceRows.map((row, index) => {
+    const id = getRowId?.(row, index) ?? String(index);
+    const changes = optimistic[id];
+    return changes ? { ...row, ...changes } : row;
+  }), [sourceRows, getRowId, optimistic]);
+
   // Ensure every filterable column uses smartRuleFilterFn by default unless overridden
   const enhancedColumns = useMemo(() => {
     return columns.map((col) => ({
       ...col,
       filterFn: col.filterFn ?? ('smartRule' as const),
+      // Calculated accessorFns also reflect optimistic inline edits.
+      ...('accessorFn' in col && (col.id || 'accessorKey' in col)
+        ? { accessorFn: (row: TData, index: number) => {
+            const id = getRowId?.(row, index) ?? String(index);
+            const value = optimistic[id]?.[col.id ?? ''];
+            return value !== undefined ? value : col.accessorFn!(row, index);
+          } } : {}),
     }));
-  }, [columns]);
+  }, [columns, optimistic, getRowId]);
 
   // When combinator is 'OR' in client mode, pre-filter rows across columns so OR logic works globally
   const processedData = useMemo(() => {
-    if (manualMode || filterGroup.combinator !== 'OR') return data;
+    if (serverManaged || filterGroup.combinator !== 'OR') return editableData;
     const activeRules = filterGroup.rules.filter(isRuleActive);
-    if (activeRules.length === 0) return data;
+    if (activeRules.length === 0) return editableData;
 
     const accessorMap = new Map<string, (row: TData) => unknown>();
     for (const col of columns) {
@@ -185,7 +228,7 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
       }
     }
 
-    return data.filter((row) =>
+    return editableData.filter((row) =>
       evaluateFilterGroup(
         row,
         (r, colId) =>
@@ -193,7 +236,7 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
         filterGroup
       )
     );
-  }, [data, columns, filterGroup, manualMode]);
+  }, [editableData, columns, filterGroup, serverManaged]);
 
   // Map AND-mode filter rules directly into TanStack Table V9 columnFilters
   // so native client-side faceting (getFacetedUniqueValues / getFacetedMinMaxValues) dynamically narrows!
@@ -209,15 +252,16 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
     return Array.from(grouped.entries()).map(([id, value]) => ({ id, value }));
   }, [filterGroup]);
 
-  const table = useTable({
-    features: dataGridFeatures,
+  const table = useTable<SiftFeatures, TData, null>({
+    features: siftFeatures,
     data: processedData,
     columns: enhancedColumns,
     getRowId,
-    manualFiltering: manualMode,
-    manualSorting: manualMode,
-    manualPagination: manualMode,
-    rowCount: manualMode ? totalRowCount : undefined,
+    manualFiltering: serverManaged,
+    manualSorting: serverManaged,
+    manualPagination: serverManaged,
+    rowCount: serverManaged ? (dataSource ? sourcePage?.totalRowCount : totalRowCount) : undefined,
+    atoms: { rowSelection: rowSelectionAtom, columnSizing: columnSizingAtom, cellSelection: cellSelectionAtom },
     enableColumnPinning: true,
     enableColumnResizing: true,
     enableMultiSort: true,
@@ -230,10 +274,8 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
       columnVisibility,
       columnOrder,
       columnPinning,
-      columnSizing,
       grouping,
       expanded,
-      rowSelection,
       pagination,
     },
     onGlobalFilterChange: setGlobalFilter,
@@ -241,17 +283,15 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
     onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange: setColumnOrder,
     onColumnPinningChange: setColumnPinning,
-    onColumnSizingChange: setColumnSizing,
     onGroupingChange: setGrouping,
     onExpandedChange: setExpanded,
-    onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
-  });
+  }, () => null);
 
   // Build unified ServerQueryPayload (great for Next.js API routes, Drizzle, Prisma, or Postgres)
   const serverQueryPayload = useMemo<ServerQueryPayload>(
     () => ({
-      search: globalFilter,
+      search: debouncedSearch,
       combinator: filterGroup.combinator,
       filters: filterGroup.rules.filter(isRuleActive).map((r) => ({
         field: r.columnId,
@@ -266,8 +306,31 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
       pageSize: pagination.pageSize,
       groupBy: grouping,
     }),
-    [globalFilter, filterGroup, sorting, pagination, grouping]
+    [debouncedSearch, filterGroup, sorting, pagination, grouping]
   );
+
+  // Async sources are opt-in and return plain JSON row objects. Abort superseded
+  // queries so rapidly changing filters cannot overwrite a newer page.
+  useEffect(() => {
+    if (!dataSource) return;
+    const controller = new AbortController();
+    setSourceLoading(true);
+    setSourceError(null);
+    Promise.resolve().then(() => dataSource(serverQueryPayload, { signal: controller.signal }))
+      .then((page) => {
+        if (!controller.signal.aborted) {
+          setSourcePage(page);
+          setSourceLoading(false);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setSourceError(error instanceof Error ? error.message : 'Unable to load Sift data');
+          setSourceLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [dataSource, serverQueryPayload]);
 
   // Sync to URL & notify server callback
   useEffect(() => {
@@ -276,6 +339,33 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
     }
     onServerQueryChange?.(serverQueryPayload);
   }, [serverQueryPayload, urlAdapter, onServerQueryChange]);
+
+  const commitCellEdit = useCallback(async (
+    rowId: string, columnId: string, oldValue: unknown, newValue: unknown, row: TData
+  ): Promise<boolean> => {
+    if (!onCellEdit) return false;
+    const column = table.getColumn(columnId);
+    const validationError = column?.columnDef.meta?.validateEdit?.(newValue);
+    if (validationError) { setEditError(validationError); return false; }
+    setEditError(null);
+    setOptimistic((prev) => ({ ...prev, [rowId]: { ...prev[rowId], [columnId]: newValue } }));
+    try {
+      await onCellEdit({ rowId, columnId, oldValue, newValue, row });
+      return true;
+    } catch (error) {
+      // Restore the original overlay; re-fetching data from the caller is also supported.
+      setOptimistic((prev) => {
+        const next = { ...prev };
+        const changed = { ...next[rowId] };
+        delete changed[columnId];
+        if (Object.keys(changed).length) next[rowId] = changed;
+        else delete next[rowId];
+        return next;
+      });
+      setEditError(error instanceof Error ? error.message : 'Could not save the change');
+      return false;
+    }
+  }, [onCellEdit, table]);
 
   // --- Rule Manipulation Helpers ---
   const addFilterRule = useCallback(
@@ -379,7 +469,7 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
     setColumnVisibility(defaultColumnMeta.visibility);
     setColumnOrder(defaultColumnMeta.order);
     setColumnPinning(initialColumnPinning);
-    setColumnSizing({});
+    table.resetColumnSizing();
     setGrouping([]);
     setActiveViewId(null);
   }, [defaultColumnMeta, initialColumnPinning]);
@@ -453,11 +543,15 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
 
   return {
     table,
+    manualMode: serverManaged, facetCounts: dataSource ? sourcePage?.facetCounts : facetCounts,
+    isLoading: sourceLoading, sourceError, onCellEdit, editError, commitCellEdit,
     // Reactive state
     globalFilter,
     setGlobalFilter,
     filterGroup,
     setFilterGroup,
+    sorting,
+    pagination,
     density,
     setDensity,
     grouping,
@@ -468,8 +562,8 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
     setColumnPinning,
     columnVisibility,
     setColumnVisibility,
-    rowSelection,
-    setRowSelection,
+    rowSelection: rowSelectionAtom.get(),
+    setRowSelection: table.setRowSelection,
     activeFilterCount,
     serverQueryPayload,
     // Filter actions
@@ -491,4 +585,4 @@ export function useDataGrid<TData>(options: UseDataGridOptions<TData>) {
 }
 
 export { createBrowserUrlAdapter };
-export type DataGridController<TData> = ReturnType<typeof useDataGrid<TData>>;
+export type SiftController<TData extends RowData> = ReturnType<typeof useSift<TData>>;

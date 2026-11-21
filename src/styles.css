@@ -1,0 +1,15 @@
+/* Optional design tokens: import @sift-grid/react/styles.css and override in your app. */
+.sift, .sift-popover {
+  --sift-accent: #4f46e5;
+  --sift-accent-strong: #3730a3;
+  --sift-accent-deep: #1e1b4b;
+  --sift-accent-subtle: #eef2ff;
+  --sift-accent-border: #c7d2fe;
+  --sift-surface: #fff;
+  --sift-surface-subtle: #f8fafc;
+  --sift-border: #cbd5e1;
+  --sift-ink: #334155;
+  --sift-muted: #64748b;
+}
+.sift-popover { background: var(--sift-surface); color: var(--sift-ink); }
+.sift:focus-within { outline-color: var(--sift-accent); }

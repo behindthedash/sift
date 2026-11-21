@@ -1,5 +1,5 @@
 // Main Component & Sub-Components
-export { DataGrid, type DataGridProps } from './components/data-grid';
+export { Sift, type SiftProps } from './components/data-grid';
 export { GridToolbar } from './components/grid-toolbar';
 export { GridHeader } from './components/grid-header';
 export { FilterCommandMenu } from './components/filter-command-menu';
@@ -11,15 +11,15 @@ export { GridPagination } from './components/grid-pagination';
 
 // State Engine, Features & Filter Serializers
 export {
-  useDataGrid,
+  useSift,
   createBrowserUrlAdapter,
-  type UseDataGridOptions,
-  type DataGridController,
+  type UseSiftOptions,
+  type SiftController,
 } from './store/use-data-grid';
 export {
-  dataGridFeatures,
+  siftFeatures,
   smartRuleFilterFn,
-  type DataGridFeatures,
+  type SiftFeatures,
 } from './features/grid-features';
 export {
   evaluateFilterRule,
@@ -34,3 +34,7 @@ export {
 export { exportRowsToCsv, type CsvExportColumn } from './utils/export-csv';
 export { cn } from './utils/cn';
 export * from './types/grid.types';
+
+export { buildPostgresDataQuery, buildPostgresCountQuery, buildPostgresFacetQuery, type PostgresSiftConfig, type SqlQuery } from './store/server-adapter';
+
+export { createJsonDataSource, type SiftDataSource, type SiftDataPage } from './store/data-source';
