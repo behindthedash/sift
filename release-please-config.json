@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "8cbb08a113cf3bd4c0aff3f7c18f6571f3a4373c",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "@sift-grid/react",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "pull-request-title-pattern": "chore(main): release ${version}"
+    }
+  }
+}

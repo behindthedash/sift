@@ -1,6 +1,7 @@
 name: Sift CI
 on:
   pull_request:
+  workflow_dispatch: # Explicitly triggered for release-please PRs created by GITHUB_TOKEN
   push:
     branches: [main]
 jobs:
@@ -17,6 +18,7 @@ jobs:
       - run: npm run build
       - run: npm run release:check
       - run: npm run release:workflow:check
+      - run: npm run release:manager:check
   e2e:
     runs-on: ubuntu-latest
     permissions: { contents: read }
