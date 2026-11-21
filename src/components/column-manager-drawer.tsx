@@ -200,7 +200,13 @@ export function ColumnManagerDrawer<TData extends RowData>({
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
+              onDragStart={(event) => console.info('SIFT_DND_START', event.active.id)}
+              onDragOver={(event) => console.info('SIFT_DND_OVER', event.active.id, event.over?.id)}
+              onDragEnd={(event) => {
+                console.info('SIFT_DND_END', event.active.id, event.over?.id);
+                handleDragEnd(event);
+              }}
+              onDragCancel={() => console.info('SIFT_DND_CANCEL')}
             >
               <SortableContext
                 items={visibleColumns.map((c) => c.id)}
