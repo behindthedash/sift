@@ -1,7 +1,7 @@
-name: Stage Sift on npm
+name: Publish Sift to npm
 
-# Protected main automatically stages only the first release or a changed package version.
-# Final publication still requires separate npm maintainer 2FA approval.
+# Protected main publishes version bumps using npm Trusted Publishing (OIDC).
+# Every version runs through validation before automatic public publication.
 on:
   push:
     branches: [main]
@@ -23,12 +23,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: sift-npm-stage
+  group: sift-npm-publish
   cancel-in-progress: false
 
 jobs:
   preflight:
-    name: Detect first release or version bump
+    name: Detect npm release version bump
     runs-on: ubuntu-latest
     outputs:
       should_stage: ${{ steps.release.outputs.should_stage }}
@@ -97,12 +97,12 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT,
             `should_stage=${shouldStage}\nversion=${pkg.version}\n`);
           console.log(shouldStage
-            ? `Staging candidate: ${pkg.name}@${pkg.version} (npm approval required)`
-            : `No version change: skipping staging for ${pkg.name}@${pkg.version}`);
+            ? `Release candidate: ${pkg.name}@${pkg.version} (OIDC direct publish)`
+            : `No version change: skipping publication for ${pkg.name}@${pkg.version}`);
           NODE
 
   stage:
-    name: Test, build and automatically stage for npm approval
+    name: Test, build and publish new npm version
     if: needs.preflight.outputs.should_stage == 'true'
     needs: preflight
     runs-on: ubuntu-latest
@@ -137,9 +137,8 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
-      # npm's OIDC trust tokens intentionally cannot call "npm stage list":
-      # that operation requires interactive auth. Check public registry metadata
-      # without credentials; npm rejects a duplicate pending stage safely.
+      # Check public registry metadata with no npm secrets or tokens.
+      # This prevents accidental republishing of the same immutable version.
       - name: Skip versions already published on npm
         id: version_check
         env:
@@ -166,13 +165,13 @@ jobs:
             `skip_stage=${alreadyPublished}\n`);
           console.log(alreadyPublished
             ? `${packageName}@${version} is already public; skipping`
-            : `${packageName}@${version} is not yet public; attempting a staged upload`);
+            : `${packageName}@${version} is not yet public; proceeding with OIDC publication`);
           NODE
-      - name: Stage with npm trusted publishing (OIDC, maintainer approval required)
+      - name: Publish with npm trusted publishing (OIDC)
         if: steps.version_check.outputs.skip_stage != 'true'
         run: |
           set -euo pipefail
           # GitHub's ephemeral OIDC identity is exchanged by npm CLI itself.
-          # A trusted publisher for this exact workflow + environment must exist
-          # on npm; this job deliberately has NO legacy token fallback.
-          npm stage publish --access public --provenance --ignore-scripts
+          # npm must allow direct publishing for this exact workflow + environment.
+          # No legacy token fallback and no manual npm approval step.
+          npm publish --access public --provenance --ignore-scripts
