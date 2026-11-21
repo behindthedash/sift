@@ -1,5 +1,5 @@
 import type { RowData } from '@tanstack/react-table';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Bookmark,
   Columns3,
@@ -49,21 +49,9 @@ export function GridToolbar<TData extends RowData>({
   const [newViewName, setNewViewName] = useState('');
   const [exportSelectedOnly, setExportSelectedOnly] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const [filterAnchor, setFilterAnchor] = useState<HTMLButtonElement | null>(null);
   const [groupAnchor, setGroupAnchor] = useState<HTMLElement | null>(null);
   const [viewsAnchor, setViewsAnchor] = useState<HTMLElement | null>(null);
-
-  // Cmd/Ctrl + K opens Quick Filter Command Menu; '/' focuses search
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        onQuickFilterOpenChange(!quickFilterOpen, null);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [quickFilterOpen, onQuickFilterOpenChange]);
 
   const groupableColumns = grid.table
     .getAllLeafColumns()
@@ -140,7 +128,7 @@ export function GridToolbar<TData extends RowData>({
         <div className="relative">
           <button
             type="button"
-            ref={filterButtonRef}
+            ref={setFilterAnchor}
             onClick={() => onQuickFilterOpenChange(!quickFilterOpen, null)}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
@@ -158,7 +146,7 @@ export function GridToolbar<TData extends RowData>({
 
           <FilterCommandMenu
             grid={grid}
-            anchor={filterButtonRef.current}
+            anchor={filterAnchor}
             open={quickFilterOpen}
             initialColumnId={quickFilterColumnId}
             onOpenChange={(open) => onQuickFilterOpenChange(open, null)}

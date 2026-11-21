@@ -16,11 +16,16 @@ test('advanced rule creates and clears a breadcrumb filter pill', async ({ page 
   await expect(page.getByText('Add condition').first()).toBeVisible();
 });
 
-test('Column Studio can reorder fields', async ({ page }) => {
+test('Column Studio supports pointer drag-and-drop', async ({ page }) => {
   await page.getByRole('button', { name: /Columns/ }).click();
-  await expect(page.getByText('Shown in Table')).toBeVisible();
-  const first = page.getByText('ARR (USD)', { exact: true }).first();
-  const second = page.getByText('Status', { exact: true }).last();
+  const drawer = page.getByRole('dialog', { name: 'Column Manager' });
+  await expect(drawer.getByText(/Shown in Table/)).toBeVisible();
+  const handles = drawer.getByRole('button', { name: 'Drag to reorder column' });
+  await expect(handles.first()).toBeVisible();
+  const count = await handles.count();
+  expect(count).toBeGreaterThan(1);
+  const first = handles.nth(0);
+  const second = handles.nth(1);
   await first.dragTo(second);
-  await expect(page.getByText('Shown in Table')).toBeVisible();
+  await expect(drawer.getByText(/Shown in Table/)).toBeVisible();
 });

@@ -1,5 +1,5 @@
 import type { RowData } from '@tanstack/react-table';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { flexRender, type ColumnDef } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -128,6 +128,20 @@ export function Sift<TData extends RowData>(props: SiftProps<TData>) {
   const [columnManagerOpen, setColumnManagerOpen] = useState(false);
   const [showHeaderFilters, setShowHeaderFilters] = useState(false);
   const [editingCell, setEditingCell] = useState<{ rowId: string; columnId: string; value: string } | null>(null);
+
+  // Attach the keyboard shortcut at the grid root so it is independent of the
+  // toolbar's transient popover anchor and callback identity.
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setQuickFilterColId(null);
+        setQuickFilterOpen((wasOpen) => !wasOpen);
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const rows = grid.table.getRowModel().rows;
