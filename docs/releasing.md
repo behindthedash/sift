@@ -1,48 +1,47 @@
-# Releasing @sift-grid/react
+# Releasing @sift-grid/react with npm Trusted Publishing
 
-**GitHub automatically stages releases; a human approves public publication on npm.** Staging uses `npm stage publish`, not `npm publish`. Only the maintainer's npm approval with two-factor authentication makes a version installable.
+**GitHub automatically stages each version bump, with no npm token.** npm requires a separate maintainer approval with 2FA before the staged package becomes publicly installable.
 
-## One-time setup
+## Required one-time configuration in npm (do this before merging the OIDC PR)
 
-1. Ensure you have package-publishing permission within the **@sift-grid** npm organization.
-2. Add a **stage-only** npm granular access token with the appropriate scope permissions as the encrypted GitHub repository secret **NPM_TOKEN**. No bypass-2FA token is needed.
-3. Enable npm 2FA for the maintainer who will approve the staged versions.
-4. The workflow uses the GitHub Actions environment **npm-publish**. For unattended staging, do **not** require environment reviewers; restricting deployment branches to **main** is recommended. If reviewers are configured, GitHub will pause staging for their approval.
+Open [Sift's npm package settings](https://www.npmjs.com/package/@sift-grid/react) while signed into a maintainer account, then select **Settings → Trusted publishing → Add trusted publisher → GitHub Actions**.
 
-Never paste npm tokens into issues, PRs, commits, chats or workflow files.
+Fill in these **exact** fields:
 
-## Automatic staging on protected main
+| Field | Value |
+| --- | --- |
+| Organization or user | `behindthedash` |
+| Repository | `sift` |
+| Workflow filename | `npm-stage.yml` (filename only, not the full path) |
+| Environment name | `npm-publish` |
+| Allowed actions | **Stage publishing only**. Do not enable direct `npm publish` or `npm dist-tag` rights. |
 
-The first merge that adds `.github/workflows/npm-stage.yml` triggers the initial `@sift-grid/react@0.1.0` staging attempt, provided the workflow remains on the main branch, the current version has not already been staged/published, and all the tests pass.
+The workflow's stage job uses the existing `npm-publish` GitHub Actions environment. For unattended staging, **do not require GitHub environment reviewers**; restricting deployment branches to `main` is recommended. If reviewers are enabled, GitHub requires their approval before staging.
 
-On **subsequent merges**, the workflow automatically stages a release **only when `package.json.version` changes** compared with the previous main commit. This prevents ordinary feature commits from generating releases.
+The publisher record on npm must match the GitHub workflow **and environment exactly**. npm recommends using a newly configured trusted publisher within **two days**; plan a version-bump test promptly.
 
-The `Stage Sift on npm` workflow:
+## Automatic release behavior
 
-1. Verifies repository, protected `main` ref, public package name and stable SemVer version.
-2. Verifies the first-workflow-install or version-change trigger using the previous main SHA.
-3. Installs dependencies, typechecks, runs unit tests, builds the package, checks npm tarball contents and runs Playwright browser tests.
-4. Checks npm for an already-staged or already-published matching version, to avoid duplicate staging.
-5. Uses the encrypted `NPM_TOKEN` to run `npm stage publish --access public --provenance --ignore-scripts`.
+- First release `0.1.0` has already been approved on npm. **This migration does not bump the version or upload a new package.**
+- Subsequent PRs that increment `package.json.version` are verified by protected-main CI; merging them triggers the `Stage Sift on npm` workflow automatically.
+- Normal source or workflow changes that do not change the package version do **not** stage a new version.
+- The workflow still supports a manual **Actions → Stage Sift on npm → Run workflow** fallback from `main`; provide the exact version and type `STAGE`.
 
-A merge itself **does not make Sift installable**. npm holds the new version for your approval. The initial stage of a brand-new package may create an npm public placeholder; the staged version's contents remain unavailable until approval.
+The workflow verifies repo, `main`, package identity and version; runs typecheck, unit tests, build, package integrity checks and Playwright browser tests; then checks publicly visible npm registry metadata to skip already-published versions.
 
-If anything fails, no new stage is created. GitHub Actions reports the failure; the maintainer should review the logs and fix the problem with another PR.
+**npm stage list cannot use GitHub OIDC credentials.** To avoid a permanent secret just for that read, the workflow does not query private staged versions. If a version is already pending staging, npm itself rejects the duplicate attempt; investigate the npm Staged Packages page before retrying.
 
-## Manual fallback
+Only the final `npm stage publish --access public --provenance --ignore-scripts` operation uses an npm-issued ephemeral OIDC trust token. It has no `NPM_TOKEN` fallback. A misconfigured or missing trusted publisher causes the staging action to fail safely without public publication.
 
-Use **Actions → Stage Sift on npm → Run workflow**, select **main**, enter the exact current `package.json` version and type **STAGE**. This is optional; normal releases do not need a manual action.
+## Validate the migration and retire the secret
 
-## Approve or reject on npm
+1. **Add the stage-only trusted publisher** on npm before merging the OIDC PR.
+2. Merge the OIDC PR once its GitHub CI checks pass. The unchanged `0.1.0` version means the merge should not create another stage.
+3. In a **separate version-bump PR**, increase the patch version (e.g. from `0.1.0` to `0.1.1`), have CI pass, and merge into protected `main`.
+4. Confirm the `Stage Sift on npm` action reports success using OIDC and find that exact version in npm's **Staged Packages**.
+5. Review and approve the stage with your npm account's 2FA. Verify with `npm view @sift-grid/react version`.
+6. **Only after an OIDC stage succeeds**, go to [Sift GitHub Actions secrets](https://github.com/behindthedash/sift/settings/secrets/actions) to delete `NPM_TOKEN`, then revoke the old token on npm. Consider disabling traditional token publishing in npm package settings as additional protection.
 
-Sign in to npmjs.com, open **Staged Packages**, inspect `@sift-grid/react` and its provenance, then choose **Approve** with 2FA to publish it. You may instead reject the stage.
+No credentials should be pasted into issues, commits, workflow files or chat.
 
-CLI equivalents: `npm stage list @sift-grid/react`, `npm stage view <stage-id>`, `npm stage approve <stage-id>`. After approval, verify `npm view @sift-grid/react version` and install it in a clean React app.
-
-## Move to trusted publishing after the initial release
-
-After the first package version is approved, configure an npm trusted publisher for GitHub owner **behindthedash**, repository **sift**, workflow **npm-stage.yml**, environment **npm-publish** (if retained). Grant **stage-only** rights, not direct publish rights.
-
-Then open a PR to remove the `NODE_AUTH_TOKEN` steps and enable OIDC, validate a staged release, delete the GitHub `NPM_TOKEN` secret and revoke the old token. Staged publishing will continue to require explicit human npm approval.
-
-References: https://docs.npmjs.com/staged-publishing/ and https://docs.npmjs.com/trusted-publishers/
+Official npm references: [Trusted publishing](https://docs.npmjs.com/trusted-publishers/) · [Staged publishing](https://docs.npmjs.com/staged-publishing/)

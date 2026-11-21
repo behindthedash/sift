@@ -137,41 +137,42 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
-      - name: Check for an existing published or staged version
+      # npm's OIDC trust tokens intentionally cannot call "npm stage list":
+      # that operation requires interactive auth. Check public registry metadata
+      # without credentials; npm rejects a duplicate pending stage safely.
+      - name: Skip versions already published on npm
         id: version_check
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
-          set -euo pipefail
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::error::Repository secret NPM_TOKEN must exist."
-            exit 1
-          fi
-          npm stage list '@sift-grid/react' --json > "$RUNNER_TEMP/sift-stages.json"
-          npm view "@sift-grid/react@${RELEASE_VERSION}" version --json \
-            > "$RUNNER_TEMP/sift-published.json" 2>/dev/null || true
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const staged = JSON.parse(fs.readFileSync(
-            `${process.env.RUNNER_TEMP}/sift-stages.json`, 'utf8'));
-          const items = Array.isArray(staged) ? staged : staged.items;
-          if (!Array.isArray(items)) {
-            throw new Error('Unexpected npm stage list response, refusing to publish');
+          const packageName = '@sift-grid/react';
+          const version = process.env.RELEASE_VERSION;
+          const registryUrl = `https://registry.npmjs.org/${encodeURIComponent(packageName)}`;
+          const response = await fetch(registryUrl, {
+            headers: { Accept: 'application/vnd.npm.install-v1+json' },
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!response.ok) {
+            throw new Error(`npm registry version check failed (${response.status}); refusing to stage`);
           }
-          const alreadyStaged = items.some((item) =>
-            item.packageName === '@sift-grid/react' &&
-            item.version === process.env.RELEASE_VERSION);
-          const text = fs.readFileSync(
-            `${process.env.RUNNER_TEMP}/sift-published.json`, 'utf8').trim();
-          const alreadyPublished = text.length > 0 &&
-            JSON.parse(text) === process.env.RELEASE_VERSION;
-          const skip = alreadyStaged || alreadyPublished;
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `skip_stage=${skip}\n`);
-          if (skip) console.log('Version is already staged or published; skipping duplicate.');
+          const metadata = await response.json();
+          if (metadata.name !== packageName || !metadata.versions || typeof metadata.versions !== 'object') {
+            throw new Error('Unexpected npm registry metadata; refusing to stage');
+          }
+          const alreadyPublished = Object.hasOwn(metadata.versions, version);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,
+            `skip_stage=${alreadyPublished}\n`);
+          console.log(alreadyPublished
+            ? `${packageName}@${version} is already public; skipping`
+            : `${packageName}@${version} is not yet public; attempting a staged upload`);
           NODE
-      - name: Stage new version for npm maintainer approval
+      - name: Stage with npm trusted publishing (OIDC, maintainer approval required)
         if: steps.version_check.outputs.skip_stage != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm stage publish --access public --provenance --ignore-scripts
+        run: |
+          set -euo pipefail
+          # GitHub's ephemeral OIDC identity is exchanged by npm CLI itself.
+          # A trusted publisher for this exact workflow + environment must exist
+          # on npm; this job deliberately has NO legacy token fallback.
+          npm stage publish --access public --provenance --ignore-scripts

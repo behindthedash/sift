@@ -16,6 +16,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run release:check
+      - run: npm run release:workflow:check
   e2e:
     runs-on: ubuntu-latest
     permissions: { contents: read }
