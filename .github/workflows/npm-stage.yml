@@ -51,7 +51,7 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           if (process.env.GITHUB_REPOSITORY !== 'behindthedash/sift' ||
               process.env.GITHUB_REF !== 'refs/heads/main') {
-            throw new Error('Releases are allowed only from protected main in beh indthedash/sift'.replace('beh ind', 'behind'));
+            throw new Error('Releases are allowed only from protected main in beh indthedash/sift'.replace('beh indthedash', 'behindthedash'));
           }
           if (pkg.name !== '@sift-grid/react' || pkg.private === true ||
               !/^\d+\.\d+\.\d+$/.test(pkg.version)) {
