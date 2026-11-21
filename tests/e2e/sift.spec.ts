@@ -22,16 +22,16 @@ test('Column Studio supports pointer drag-and-drop', async ({ page }) => {
   await expect(drawer.getByText(/Shown in Table/)).toBeVisible({ timeout: 8000 });
   const handles = drawer.getByRole('button', { name: 'Drag to reorder column' });
   await expect(handles.first()).toBeVisible({ timeout: 8000 });
-  expect(await handles.count()).toBeGreaterThan(1);
-  const beforeFirst = await handles.nth(0).locator('..').innerText();
-  const first = await handles.nth(0).boundingBox();
-  const second = await handles.nth(1).boundingBox();
+  expect(await handles.count()).toBeGreaterThan(5);
+  const beforeFirst = await handles.nth(2).locator('..').innerText();
+  const first = await handles.nth(2).boundingBox();
+  const second = await handles.nth(5).boundingBox();
   expect(first).not.toBeNull();
   expect(second).not.toBeNull();
   await page.mouse.move(first!.x + first!.width / 2, first!.y + first!.height / 2);
   await page.mouse.down();
-  await page.mouse.move(second!.x + second!.width / 2, second!.y + second!.height + 8, { steps: 12 });
+  await page.mouse.move(second!.x + second!.width / 2, second!.y + second!.height / 2, { steps: 12 });
   await page.mouse.up();
-  await expect.poll(async () => handles.nth(0).locator('..').innerText(), { timeout: 8000 })
+  await expect.poll(async () => handles.nth(2).locator('..').innerText(), { timeout: 8000 })
     .not.toBe(beforeFirst);
 });
