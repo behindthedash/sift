@@ -15,7 +15,7 @@ on:
         type: string
         required: true
       confirmation:
-        description: 'Type STAGE to explicitly stage this version'
+        description: 'Type PUBLISH to authorize direct npm publication'
         type: string
         required: true
 
@@ -60,9 +60,9 @@ jobs:
 
           let shouldStage = false;
           if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
-            if (process.env.RELEASE_CONFIRMATION !== 'STAGE' ||
+            if (process.env.RELEASE_CONFIRMATION !== 'PUBLISH' ||
                 process.env.RELEASE_VERSION !== pkg.version) {
-              throw new Error('Manual release requires STAGE and the exact package.json version');
+              throw new Error('Manual release requires PUBLISH and the exact package.json version');
             }
             shouldStage = true;
           } else if (process.env.GITHUB_EVENT_NAME === 'push') {
