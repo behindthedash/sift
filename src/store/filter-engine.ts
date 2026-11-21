@@ -78,24 +78,28 @@ export function evaluateFilterRule(rawValue: unknown, rule: FilterRule): boolean
       return !evaluateFilterRule(rawValue, { ...rule, operator: 'isAnyOf' });
 
     case 'gt': {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return false;
       const numCell = Number(rawValue);
       const numTarget = Number(value);
       return !Number.isNaN(numCell) && !Number.isNaN(numTarget) && numCell > numTarget;
     }
 
     case 'gte': {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return false;
       const numCell = Number(rawValue);
       const numTarget = Number(value);
       return !Number.isNaN(numCell) && !Number.isNaN(numTarget) && numCell >= numTarget;
     }
 
     case 'lt': {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return false;
       const numCell = Number(rawValue);
       const numTarget = Number(value);
       return !Number.isNaN(numCell) && !Number.isNaN(numTarget) && numCell < numTarget;
     }
 
     case 'lte': {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return false;
       const numCell = Number(rawValue);
       const numTarget = Number(value);
       return !Number.isNaN(numCell) && !Number.isNaN(numTarget) && numCell <= numTarget;
@@ -127,6 +131,7 @@ export function evaluateFilterRule(rawValue: unknown, rule: FilterRule): boolean
         return true;
       }
 
+      if (rawValue === null || rawValue === undefined || rawValue === '') return false;
       const numCell = Number(rawValue);
       if (Number.isNaN(numCell)) return false;
       const hasMin = minRaw !== '' && minRaw !== null && minRaw !== undefined;
@@ -275,8 +280,9 @@ export function buildPostgresWhereClause(
 
   for (const rule of filterGroup.rules) {
     if (!isRuleActive(rule)) continue;
-    const sqlCol = columnAllowlist[rule.columnId];
-    if (!sqlCol) continue;
+    const rawIdentifier = Object.hasOwn(columnAllowlist, rule.columnId) ? columnAllowlist[rule.columnId] : undefined;
+    if (!rawIdentifier) continue;
+    const sqlCol = quoteSqlIdentifier(rawIdentifier);
 
     switch (rule.operator) {
       case 'is':
@@ -382,4 +388,12 @@ function toTimestamp(val: unknown): number | null {
     return Number.isNaN(parsed) ? null : parsed;
   }
   return null;
+}
+
+/** Only literal PostgreSQL identifiers from a trusted allowlist may appear in generated SQL. */
+export function quoteSqlIdentifier(identifier: string): string {
+  if (!identifier.split('.').every((part) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(part))) {
+    throw new Error(`Unsafe SQL identifier: ${identifier}`);
+  }
+  return identifier.split('.').map((part) => `"${part}"`).join('.');
 }

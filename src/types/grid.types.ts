@@ -65,7 +65,15 @@ export interface DrilldownSegment {
   value: string;
 }
 
-export interface DataGridColumnMeta {
+export interface SiftColumnMeta {
+  /** Allow inline editing when the Sift onCellEdit callback is configured. */
+  editable?: boolean;
+  /** Parse the text editor value into the desired column value. */
+  parseEdit?: (input: string) => unknown;
+  /** Validation error message, or null/undefined when valid. */
+  validateEdit?: (value: unknown) => string | null | undefined;
+  /** Optional pinned summary footer, computed over filtered rows. */
+  summary?: 'sum' | 'avg' | 'min' | 'max' | 'count';
   /** Human-readable name displayed in Filter Bar, Breadcrumbs, and Column Manager */
   label: string;
   /** Optional Lucide or custom icon shown alongside the column name */
@@ -131,12 +139,12 @@ export interface ServerQueryPayload {
   groupBy: string[];
 }
 
-export interface DataGridUrlAdapter {
+export interface SiftUrlAdapter {
   read: () => string;
   write: (queryString: string) => void;
 }
 
-export interface DataGridStateSnapshot {
+export interface SiftStateSnapshot {
   globalFilter: string;
   filterGroup: FilterGroupState;
   sorting: SortingState;
@@ -149,7 +157,7 @@ export interface DataGridStateSnapshot {
   density: GridDensity;
 }
 
-export interface DataGridEmptyStateConfig {
+export interface SiftEmptyStateConfig {
   title?: string;
   description?: string;
   filteredTitle?: string;

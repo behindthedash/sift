@@ -1,55 +1,59 @@
-# `@your-org/data-grid`
+# Sift
 
-A 100% MIT-licensed, UX-first React + TypeScript data grid powered by **TanStack Table V9** (`@tanstack/react-table` v9.3+), **Tailwind CSS**, **`@dnd-kit`**, and **`@tanstack/react-virtual`**.
+**Sift** is an MIT-licensed data grid for React and TanStack Table 9 with a clean `<Sift />` API, fast faceted filters, composable views, spreadsheet selection, and safe server query adapters.
 
-Designed to deliver — and surpass — the interaction polish of commercial enterprise grids without any license keys or proprietary lock-in.
-
-## Key Capabilities
-
-* **TanStack Table V9 Native Architecture:** Uses static `tableFeatures()` registration, `useTable()`, reactive `table.state` subscriptions, type-safe `filterFns`/`sortFns` registries, V9 logical `start`/`end` column pinning (`insetInlineStart`/`insetInlineEnd`), and V9 indeterminate row-selection semantics.
-* **Dual-Mode Filtering (Linear + Notion):**
-  * **Quick Command-Palette Faceted Filter (`⌘K` or `+ Filter`):** Search columns, drill into live cross-narrowed counts via `column.getFacetedUniqueValues()` and numeric bounds via `column.getFacetedMinMaxValues()`.
-  * **Advanced Rule Builder (`Rules`):** Stack multi-field `AND` / `OR` conditions across 17 operators (`is`, `isNot`, `isAnyOf`, `isNoneOf`, `contains`, `between`, `before`, `after`, `isEmpty`, etc.).
-* **Interactive Breadcrumb & Filter Pill Trail:**
-  * Clickable hierarchical grouping breadcrumbs (`All Records > Region > Plan Tier`).
-  * Compound filter pills where clicking the **operator** switches logic inline and clicking the **value** opens the column's editor.
-* **Column Studio Drawer:** Instant column search, **Shown in Table** vs **Available to Add** buckets, drag-and-drop column reordering (`@dnd-kit/sortable`), and logical start/end sticky pinning.
-* **Saved Views, URL State Sync & Postgres Builder:** Save/restore presets to `localStorage`, sync state to query parameters via `urlAdapter` (compatible with Next.js App Router or `nuqs`), and generate parameterized SQL `WHERE` clauses with `buildPostgresWhereClause()`.
-
-## Quick Start
+## Install
 
 ```bash
-npm install @tanstack/react-table @tanstack/react-virtual @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities lucide-react clsx tailwind-merge
+npm install @sift-grid/react
 ```
 
-Copy `src/` into your monorepo package (`packages/data-grid`) or directly into your Next.js app (`components/data-grid`), and see `examples/demo-page.tsx` for a full 1,200-row interactive example with grouping, pinning, bulk actions, and live PostgreSQL query serialization.
+```tsx
+import { Sift } from '@sift-grid/react';
+import '@sift-grid/react/styles.css';
 
-## Repository Layout
-
-```text
-├── package.json
-├── tsconfig.json
-├── README.md
-├── src/
-│   ├── index.ts
-│   ├── types/grid.types.ts
-│   ├── features/grid-features.ts
-│   ├── store/
-│   │   ├── filter-engine.ts
-│   │   └── use-data-grid.ts
-│   ├── utils/
-│   │   ├── cn.ts
-│   │   └── export-csv.ts
-│   └── components/
-│       ├── data-grid.tsx
-│       ├── grid-toolbar.tsx
-│       ├── grid-header.tsx
-│       ├── filter-command-menu.tsx
-│       ├── filter-rule-builder.tsx
-│       ├── breadcrumb-trail.tsx
-│       ├── column-manager-drawer.tsx
-│       ├── bulk-action-bar.tsx
-│       └── grid-pagination.tsx
-└── examples/
-    └── demo-page.tsx
+<Sift data={rows} columns={columns} getRowId={(row) => row.id} />
 ```
+
+Sift uses Tailwind utilities. **Your host app must scan Sift's installed package** in Tailwind's content settings (v3) or add `@source "../node_modules/@sift-grid/react/dist";` to the host stylesheet (v4). Override CSS variables on `.sift` (and `.sift-popover` for portaled menus) to change the accent, surface, border, ink and muted colors. The dependency includes neither a theme reset nor a proprietary stylesheet.
+
+## Data sources: JSON first, SQL optional
+
+**No SQL or database is needed.** Pass any array of objects:
+
+```tsx
+const people = [{ id: '1', name: 'Avery', status: 'Active' }];
+<Sift data={people} columns={columns} />
+```
+
+For remote data, supply a stable `dataSource` function. Sift sends a typed query
+containing filters, sorting, pagination, and search, and expects JSON rows in return.
+The component aborts superseded requests and exposes loading state. Any API,
+GraphQL resolver, MongoDB collection, or database can satisfy this contract.
+
+```tsx
+import { Sift, createJsonDataSource } from '@sift-grid/react';
+const source = createJsonDataSource<Person>('/api/people'); // create outside render
+<Sift dataSource={source} columns={columns} />
+```
+
+The endpoint returns `{ "rows": [...], "totalRowCount": 123, "facetCounts": {} }`.
+A sample **optional** PostgreSQL adapter is provided under `src/store/server-adapter.ts`.
+
+## Features
+
+- Quick command filtering (`Cmd/Ctrl+K`) with keyboard list navigation, cross-narrowed facets, and advanced AND/OR rules.
+- Column Studio drag/drop, saved views, pinning, grouping breadcrumbs, column resizing, and per-column summary footer.
+- Cell ranges: drag, Shift extend, Ctrl/Cmd multi-range, Arrow/Tab navigation, clipboard TSV copy and paste, and optimistic double-click/Enter editing with rollback. Enable editing by setting column `meta.editable = true` and providing `onCellEdit`. Supply `meta.parseEdit` and `meta.validateEdit` as needed.
+- Portaled menus via Floating UI, accessible grid semantics, optional header filters, and CSV export honoring accessorFns and column formatting (with selected-only option).
+- Server mode: `manualMode`, `onServerQueryChange`, `facetCounts`, debounced search. Use the parameterized Postgres query builders from the package and see `examples/nextjs-app-router/route.ts` for an App Router endpoint. Map identifiers only from a trusted allowlist; never concatenate user field names into SQL.
+
+## Development
+
+`npm install`, then `npm run typecheck`, `npm test`, `npm run build`. Run `npm run demo` to launch the Vite demo, and `npm run test:e2e` for Playwright after installing browsers.
+
+## Release
+
+ESM-only distributable with type declarations and an explicit `'use client'` entrypoint. The npm package is `@sift-grid/react` (rather than the occupied unscoped `sift`), while the component and hook remain `<Sift />` and `useSift`. Publishing requires control of the `@sift-grid` npm scope; package ownership and name availability must be confirmed before a release.
+
+MIT licensing applies to original Sift source; dependencies retain their own licenses. See `LICENSE`.

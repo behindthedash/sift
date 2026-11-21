@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import type { DataGridController } from '../store/use-data-grid';
+import type { SiftController } from '../store/use-data-grid';
 import {
   OPERATORS_BY_VARIANT,
   getDefaultOperator,
@@ -12,7 +12,7 @@ import {
 import { cn } from '../utils/cn';
 
 interface FilterRuleBuilderProps<TData> {
-  grid: DataGridController<TData>;
+  grid: SiftController<TData>;
   open: boolean;
   onClose: () => void;
 }
@@ -42,18 +42,18 @@ export function FilterRuleBuilder<TData>({
   return (
     <div
       className={cn(
-        'border-b border-slate-200 bg-slate-50/90 px-4 py-3.5',
-        'dark:border-slate-800 dark:bg-slate-900/60'
+        'border-b border-[var(--sift-border)] bg-[var(--sift-surface-subtle)]/90 px-4 py-3.5',
+        'dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]/60'
       )}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-          <span className="font-semibold text-slate-800 dark:text-slate-100">
+        <div className="flex items-center gap-2 text-xs text-[var(--sift-muted)] dark:text-[var(--sift-border)]">
+          <span className="font-semibold text-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]">
             Advanced Filter Rules
           </span>
-          <span className="text-slate-400">·</span>
+          <span className="text-[var(--sift-muted)]">·</span>
           <span>Match</span>
-          <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-950">
+          <div className="inline-flex rounded-md border border-[var(--sift-border)] bg-white p-0.5 dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
             {(['AND', 'OR'] as FilterCombinator[]).map((mode) => (
               <button
                 key={mode}
@@ -62,8 +62,8 @@ export function FilterRuleBuilder<TData>({
                 className={cn(
                   'rounded px-2 py-0.5 text-[11px] font-semibold transition-colors',
                   grid.filterGroup.combinator === mode
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+                    ? 'bg-[var(--sift-accent)] text-white shadow-sm'
+                    : 'text-[var(--sift-muted)] hover:text-[var(--sift-ink)] dark:text-[var(--sift-muted)]'
                 )}
               >
                 {mode === 'AND' ? 'ALL (AND)' : 'ANY (OR)'}
@@ -76,7 +76,7 @@ export function FilterRuleBuilder<TData>({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-1 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 dark:hover:bg-slate-800"
+          className="rounded-md p-1 text-[var(--sift-muted)] hover:bg-[var(--sift-border)]/60 hover:text-[var(--sift-ink)] dark:hover:bg-[var(--sift-ink)]"
           aria-label="Close rule builder"
         >
           <X className="h-4 w-4" />
@@ -86,7 +86,7 @@ export function FilterRuleBuilder<TData>({
       {/* Rules List */}
       <div className="space-y-2">
         {grid.filterGroup.rules.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-white/60 px-4 py-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-950/40">
+          <div className="rounded-lg border border-dashed border-[var(--sift-border)] bg-white/60 px-4 py-3 text-xs text-[var(--sift-muted)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]/40">
             No rules configured yet. Add a condition below to build multi-field AND/OR queries.
           </div>
         ) : (
@@ -109,9 +109,9 @@ export function FilterRuleBuilder<TData>({
           type="button"
           onClick={handleAddRule}
           disabled={!firstColId}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--sift-border)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--sift-ink)] shadow-xs hover:bg-[var(--sift-surface-subtle)] disabled:opacity-50 dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
         >
-          <Plus className="h-3.5 w-3.5 text-indigo-500" />
+          <Plus className="h-3.5 w-3.5 text-[var(--sift-accent)]" />
           Add condition
         </button>
 
@@ -119,7 +119,7 @@ export function FilterRuleBuilder<TData>({
           <button
             type="button"
             onClick={grid.clearAllFilters}
-            className="text-xs font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400"
+            className="text-xs font-medium text-[var(--sift-muted)] hover:text-rose-600 dark:text-[var(--sift-muted)]"
           >
             Reset all rules
           </button>
@@ -133,8 +133,8 @@ interface FilterRuleRowProps<TData> {
   rule: FilterRule;
   index: number;
   combinator: FilterCombinator;
-  grid: DataGridController<TData>;
-  filterableColumns: ReturnType<DataGridController<TData>['table']['getAllLeafColumns']>;
+  grid: SiftController<TData>;
+  filterableColumns: ReturnType<SiftController<TData>['table']['getAllLeafColumns']>;
 }
 
 function FilterRuleRow<TData>({
@@ -164,9 +164,9 @@ function FilterRuleRow<TData>({
   }, [column]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-2xs dark:border-slate-800 dark:bg-slate-950">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--sift-border)] bg-white p-2 shadow-2xs dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
       {/* Prefix label */}
-      <span className="w-12 shrink-0 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+      <span className="w-12 shrink-0 text-right text-[11px] font-semibold uppercase tracking-wide text-[var(--sift-muted)]">
         {index === 0 ? 'Where' : combinator}
       </span>
 
@@ -186,7 +186,7 @@ function FilterRuleRow<TData>({
                 : '',
           });
         }}
-        className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="rounded-md border border-[var(--sift-border)] bg-[var(--sift-surface-subtle)] px-2.5 py-1.5 text-xs font-medium text-[var(--sift-ink)] focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]"
       >
         {filterableColumns.map((col) => (
           <option key={col.id} value={col.id}>
@@ -216,7 +216,7 @@ function FilterRuleRow<TData>({
                     : rule.value,
           });
         }}
-        className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        className="rounded-md border border-[var(--sift-border)] bg-white px-2 py-1.5 text-xs text-[var(--sift-ink)] focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)]"
       >
         {operators.map((op) => (
           <option key={op.value} value={op.value}>
@@ -239,9 +239,9 @@ function FilterRuleRow<TData>({
                   grid.updateFilterRule(rule.id, { value: arr });
                 }}
                 placeholder="Min"
-                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+                className="w-full rounded-md border border-[var(--sift-border)] px-2 py-1 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
               />
-              <span className="text-xs text-slate-400">to</span>
+              <span className="text-xs text-[var(--sift-muted)]">to</span>
               <input
                 type={variant === 'date' ? 'date' : 'number'}
                 value={Array.isArray(rule.value) ? String(rule.value[1] ?? '') : ''}
@@ -251,7 +251,7 @@ function FilterRuleRow<TData>({
                   grid.updateFilterRule(rule.id, { value: arr });
                 }}
                 placeholder="Max"
-                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+                className="w-full rounded-md border border-[var(--sift-border)] px-2 py-1 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
               />
             </div>
           ) : variant === 'boolean' ? (
@@ -260,7 +260,7 @@ function FilterRuleRow<TData>({
               onChange={(e) =>
                 grid.updateFilterRule(rule.id, { value: e.target.value === 'true' })
               }
-              className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+              className="w-full rounded-md border border-[var(--sift-border)] px-2 py-1 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
             >
               <option value="true">True</option>
               <option value="false">False</option>
@@ -287,8 +287,8 @@ function FilterRuleRow<TData>({
                       className={cn(
                         'rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors',
                         active
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                          ? 'border-[var(--sift-accent)] bg-[var(--sift-accent-subtle)] text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+                          : 'border-[var(--sift-border)] bg-white text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-border)]'
                       )}
                     >
                       {opt.label}
@@ -302,7 +302,7 @@ function FilterRuleRow<TData>({
                 onChange={(e) =>
                   grid.updateFilterRule(rule.id, { value: e.target.value })
                 }
-                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+                className="w-full rounded-md border border-[var(--sift-border)] px-2 py-1 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
               >
                 <option value="">Select value...</option>
                 {selectOptions.map((opt) => (
@@ -326,7 +326,7 @@ function FilterRuleRow<TData>({
                 grid.updateFilterRule(rule.id, { value: e.target.value })
               }
               placeholder={column?.columnDef.meta?.placeholder ?? 'Enter value...'}
-              className="w-full rounded-md border border-slate-200 px-2.5 py-1 text-xs focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900"
+              className="w-full rounded-md border border-[var(--sift-border)] px-2.5 py-1 text-xs focus:border-[var(--sift-accent)] focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
             />
           )}
         </div>
@@ -336,7 +336,7 @@ function FilterRuleRow<TData>({
       <button
         type="button"
         onClick={() => grid.removeFilterRule(rule.id)}
-        className="ml-auto rounded-md p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/50"
+        className="ml-auto rounded-md p-1.5 text-[var(--sift-muted)] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/50"
         aria-label="Remove rule"
       >
         <Trash2 className="h-3.5 w-3.5" />

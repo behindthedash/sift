@@ -8,7 +8,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import type { DataGridController } from '../store/use-data-grid';
+import type { SiftController } from '../store/use-data-grid';
 import {
   OPERATORS_BY_VARIANT,
   getOperatorMeta,
@@ -17,9 +17,10 @@ import {
 } from '../types/grid.types';
 import { isRuleActive } from '../store/filter-engine';
 import { cn } from '../utils/cn';
+import { SiftPopover } from './sift-popover';
 
 interface BreadcrumbTrailProps<TData> {
-  grid: DataGridController<TData>;
+  grid: SiftController<TData>;
   onOpenQuickFilter: (columnId?: string) => void;
   onOpenRuleBuilder: () => void;
 }
@@ -37,6 +38,7 @@ export function BreadcrumbTrail<TData>({
   onOpenRuleBuilder,
 }: BreadcrumbTrailProps<TData>) {
   const [editingOpRuleId, setEditingOpRuleId] = useState<string | null>(null);
+  const [operatorAnchor, setOperatorAnchor] = useState<HTMLElement | null>(null);
 
   const activeRules = grid.filterGroup.rules.filter(isRuleActive);
   const hasSearch = grid.globalFilter.trim().length > 0;
@@ -78,17 +80,17 @@ export function BreadcrumbTrail<TData>({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/70 px-4 py-2 text-xs',
-        'dark:border-slate-800 dark:bg-slate-900/40'
+        'flex flex-wrap items-center gap-2 border-b border-[var(--sift-border)] bg-[var(--sift-surface-subtle)]/70 px-4 py-2 text-xs',
+        'dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]/40'
       )}
     >
       {/* 1. Hierarchical Grouping Breadcrumb Trail */}
       {hasGrouping && (
         <nav
           aria-label="Grouping hierarchy trail"
-          className="flex items-center gap-1 rounded-lg border border-indigo-200/80 bg-indigo-50/70 px-2 py-1 text-indigo-900 dark:border-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-200"
+          className="flex items-center gap-1 rounded-lg border border-[var(--sift-accent-border)]/80 bg-[var(--sift-accent-subtle)]/70 px-2 py-1 text-[var(--sift-accent-strong)] dark:border-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)]/60 dark:text-[var(--sift-accent-border)]"
         >
-          <FolderTree className="mr-1 h-3.5 w-3.5 text-indigo-500" />
+          <FolderTree className="mr-1 h-3.5 w-3.5 text-[var(--sift-accent)]" />
           <button
             type="button"
             onClick={() => grid.setGrouping([])}
@@ -102,12 +104,12 @@ export function BreadcrumbTrail<TData>({
             const label = col?.columnDef.meta?.label ?? colId;
             return (
               <React.Fragment key={colId}>
-                <ChevronRight className="h-3 w-3 text-indigo-400" />
+                <ChevronRight className="h-3 w-3 text-[var(--sift-accent)]" />
                 <button
                   type="button"
                   onClick={() => grid.setGrouping(grid.grouping.slice(0, idx + 1))}
                   className={cn(
-                    'rounded px-1 py-0.5 transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-900',
+                    'rounded px-1 py-0.5 transition-colors hover:bg-[var(--sift-accent-subtle)] dark:hover:bg-[var(--sift-accent-strong)]',
                     idx === grid.grouping.length - 1 && 'font-semibold'
                   )}
                   title="Click to trim grouping hierarchy to this level"
@@ -121,7 +123,7 @@ export function BreadcrumbTrail<TData>({
           <button
             type="button"
             onClick={() => grid.setGrouping([])}
-            className="ml-1 rounded p-0.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700 dark:hover:bg-indigo-900"
+            className="ml-1 rounded p-0.5 text-[var(--sift-accent)] hover:bg-[var(--sift-accent-subtle)] hover:text-[var(--sift-accent-strong)] dark:hover:bg-[var(--sift-accent-strong)]"
             aria-label="Clear grouping"
           >
             <X className="h-3 w-3" />
@@ -131,16 +133,16 @@ export function BreadcrumbTrail<TData>({
 
       {/* 2. Global Search Pill */}
       {hasSearch && (
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-2xs dark:border-slate-700 dark:bg-slate-950">
-          <Search className="h-3 w-3 text-slate-400" />
-          <span className="text-slate-500">Search:</span>
-          <span className="font-medium text-slate-800 dark:text-slate-100">
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--sift-border)] bg-white px-2 py-1 shadow-2xs dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
+          <Search className="h-3 w-3 text-[var(--sift-muted)]" />
+          <span className="text-[var(--sift-muted)]">Search:</span>
+          <span className="font-medium text-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]">
             &ldquo;{grid.globalFilter}&rdquo;
           </span>
           <button
             type="button"
             onClick={() => grid.setGlobalFilter('')}
-            className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+            className="rounded p-0.5 text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] hover:text-[var(--sift-ink)] dark:hover:bg-[var(--sift-ink)]"
             aria-label="Clear search"
           >
             <X className="h-3 w-3" />
@@ -169,16 +171,16 @@ export function BreadcrumbTrail<TData>({
                   )
                 }
                 title="Click to toggle AND / OR logic"
-                className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:bg-slate-200/70 hover:text-indigo-600 dark:hover:bg-slate-800"
+                className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--sift-muted)] hover:bg-[var(--sift-border)]/70 hover:text-[var(--sift-accent)] dark:hover:bg-[var(--sift-ink)]"
               >
                 {grid.filterGroup.combinator}
               </button>
             )}
 
-            <div className="relative inline-flex items-center divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white shadow-2xs dark:divide-slate-800 dark:border-slate-700 dark:bg-slate-950">
+            <div className="relative inline-flex items-center divide-x divide-slate-200 rounded-lg border border-[var(--sift-border)] bg-white shadow-2xs dark:divide-slate-800 dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
               {/* Field Segment */}
-              <span className="inline-flex items-center gap-1.5 px-2 py-1 font-medium text-slate-700 dark:text-slate-200">
-                <Icon className="h-3 w-3 text-slate-400" />
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 font-medium text-[var(--sift-ink)] dark:text-[var(--sift-border)]">
+                <Icon className="h-3 w-3 text-[var(--sift-muted)]" />
                 {meta?.label ?? rule.columnId}
               </span>
 
@@ -186,17 +188,15 @@ export function BreadcrumbTrail<TData>({
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() =>
-                    setEditingOpRuleId(editingOpRuleId === rule.id ? null : rule.id)
-                  }
-                  className="px-2 py-1 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-slate-900"
+                  onClick={(event) => { setOperatorAnchor(event.currentTarget); setEditingOpRuleId(editingOpRuleId === rule.id ? null : rule.id); }}
+                  className="px-2 py-1 text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] hover:text-[var(--sift-accent)] dark:text-[var(--sift-muted)] dark:hover:bg-[var(--sift-ink)]"
                   title="Click to switch filter operator"
                 >
                   {opMeta.shortLabel}
                 </button>
 
                 {editingOpRuleId === rule.id && (
-                  <div className="absolute left-0 top-full z-40 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-950">
+                  <SiftPopover anchor={operatorAnchor} onDismiss={() => setEditingOpRuleId(null)}><div className="w-40 rounded-lg border border-[var(--sift-border)] bg-white p-1 shadow-lg dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]">
                     {operators.map((op) => (
                       <button
                         key={op.value}
@@ -210,14 +210,14 @@ export function BreadcrumbTrail<TData>({
                         className={cn(
                           'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs',
                           rule.operator === op.value
-                            ? 'bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200'
-                            : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900'
+                            ? 'bg-[var(--sift-accent-subtle)] font-semibold text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+                            : 'text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]'
                         )}
                       >
                         {op.label}
                       </button>
                     ))}
-                  </div>
+                  </div></SiftPopover>
                 )}
               </div>
 
@@ -230,7 +230,7 @@ export function BreadcrumbTrail<TData>({
                       ? onOpenQuickFilter(rule.columnId)
                       : onOpenRuleBuilder()
                   }
-                  className="max-w-[200px] truncate px-2 py-1 font-semibold text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900"
+                  className="max-w-[200px] truncate px-2 py-1 font-semibold text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-surface-subtle)] dark:hover:bg-[var(--sift-ink)]"
                   title="Click to edit filter value"
                 >
                   {displayValue}
@@ -241,7 +241,7 @@ export function BreadcrumbTrail<TData>({
               <button
                 type="button"
                 onClick={() => grid.removeFilterRule(rule.id)}
-                className="px-1.5 py-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/60"
+                className="px-1.5 py-1 text-[var(--sift-muted)] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/60"
                 aria-label={`Remove ${meta?.label ?? rule.columnId} filter`}
               >
                 <X className="h-3 w-3" />
@@ -255,7 +255,7 @@ export function BreadcrumbTrail<TData>({
       <button
         type="button"
         onClick={() => onOpenQuickFilter()}
-        className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-1 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-400"
+        className="inline-flex items-center gap-1 rounded-lg border border-dashed border-[var(--sift-border)] px-2 py-1 text-[var(--sift-muted)] hover:border-[var(--sift-accent)] hover:text-[var(--sift-accent)] dark:border-[var(--sift-ink)] dark:text-[var(--sift-muted)]"
       >
         <Plus className="h-3 w-3" />
         Filter
@@ -265,7 +265,7 @@ export function BreadcrumbTrail<TData>({
         <button
           type="button"
           onClick={grid.clearAllFilters}
-          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-slate-500 hover:bg-slate-200/70 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-[var(--sift-muted)] hover:bg-[var(--sift-border)]/70 hover:text-[var(--sift-ink)] dark:text-[var(--sift-muted)] dark:hover:bg-[var(--sift-ink)] dark:hover:text-[var(--sift-surface-subtle)]"
         >
           <RotateCcw className="h-3 w-3" />
           Clear all

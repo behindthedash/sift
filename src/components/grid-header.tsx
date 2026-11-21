@@ -12,12 +12,14 @@ import {
   PanelRight,
   PinOff,
 } from 'lucide-react';
-import type { DataGridController } from '../store/use-data-grid';
+import type { SiftController } from '../store/use-data-grid';
 import { cn } from '../utils/cn';
+import { SiftPopover } from './sift-popover';
 
 interface GridHeaderProps<TData> {
-  grid: DataGridController<TData>;
+  grid: SiftController<TData>;
   onFilterColumn: (columnId: string) => void;
+  showHeaderFilters?: boolean;
 }
 
 /**
@@ -29,14 +31,15 @@ interface GridHeaderProps<TData> {
  */
 export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TData>) {
   const [openMenuColId, setOpenMenuColId] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const sorting = grid.table.state.sorting;
 
   return (
-    <thead className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-xs dark:bg-slate-900/95">
+    <thead className="sticky top-0 z-20 bg-[var(--sift-surface-subtle)]/95 backdrop-blur-xs dark:bg-[var(--sift-ink)]/95">
       {grid.table.getHeaderGroups().map((headerGroup) => (
         <tr
           key={headerGroup.id}
-          className="border-b border-slate-200 dark:border-slate-800"
+          className="border-b border-[var(--sift-border)] dark:border-[var(--sift-ink)]"
         >
           {headerGroup.headers.map((header) => {
             const col = header.column;
@@ -64,11 +67,13 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
             return (
               <th
                 key={header.id}
+                aria-colindex={col.getIndex() + 1}
+                aria-sort={sortDir === 'asc' ? 'ascending' : sortDir === 'desc' ? 'descending' : 'none'}
                 colSpan={header.colSpan}
                 style={stickyStyle}
                 className={cn(
-                  'group select-none px-3 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300',
-                  pinned && 'bg-slate-50 dark:bg-slate-900',
+                  'group select-none px-3 py-2.5 text-xs font-semibold text-[var(--sift-muted)] dark:text-[var(--sift-border)]',
+                  pinned && 'bg-[var(--sift-surface-subtle)] dark:bg-[var(--sift-ink)]',
                   isLastStart && 'shadow-[4px_0_8px_-4px_rgba(15,23,42,0.12)]',
                   isFirstEnd && 'shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.12)]'
                 )}
@@ -88,7 +93,7 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                     className={cn(
                       'flex min-w-0 items-center gap-1.5 truncate',
                       canSort &&
-                        'cursor-pointer hover:text-slate-950 dark:hover:text-white'
+                        'cursor-pointer hover:text-[var(--sift-ink)] dark:hover:text-white'
                     )}
                   >
                     <span className="truncate">
@@ -103,14 +108,14 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                     {canSort && !isSelectCol && (
                       <span className="inline-flex shrink-0 items-center">
                         {sortDir === 'asc' ? (
-                          <ArrowUp className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <ArrowUp className="h-3.5 w-3.5 text-[var(--sift-accent)] dark:text-[var(--sift-accent)]" />
                         ) : sortDir === 'desc' ? (
-                          <ArrowDown className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <ArrowDown className="h-3.5 w-3.5 text-[var(--sift-accent)] dark:text-[var(--sift-accent)]" />
                         ) : (
-                          <ArrowUpDown className="h-3 w-3 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-slate-600" />
+                          <ArrowUpDown className="h-3 w-3 text-[var(--sift-border)] opacity-0 transition-opacity group-hover:opacity-100 dark:text-[var(--sift-muted)]" />
                         )}
                         {sortPriority && sortPriority > 0 && (
-                          <span className="ml-0.5 rounded bg-indigo-100 px-1 font-mono text-[9px] text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                          <span className="ml-0.5 rounded bg-[var(--sift-accent-subtle)] px-1 font-mono text-[9px] text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]">
                             {sortPriority}
                           </span>
                         )}
@@ -125,10 +130,11 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setMenuAnchor(e.currentTarget);
                           setOpenMenuColId(openMenuColId === col.id ? null : col.id);
                         }}
                         className={cn(
-                          'rounded p-0.5 text-slate-400 transition-opacity hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800',
+                          'rounded p-0.5 text-[var(--sift-muted)] transition-opacity hover:bg-[var(--sift-border)]/70 hover:text-[var(--sift-ink)] dark:hover:bg-[var(--sift-ink)]',
                           openMenuColId === col.id
                             ? 'opacity-100'
                             : 'opacity-0 group-hover:opacity-100'
@@ -139,9 +145,9 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                       </button>
 
                       {openMenuColId === col.id && (
-                        <div
+                        <SiftPopover anchor={menuAnchor} placement="bottom-end" onDismiss={() => setOpenMenuColId(null)}><div
                           onMouseLeave={() => setOpenMenuColId(null)}
-                          className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1 text-left font-normal shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                          className="w-44 rounded-xl border border-[var(--sift-border)] bg-white p-1 text-left font-normal shadow-xl dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]"
                         >
                           {canSort && (
                             <>
@@ -151,9 +157,9 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                                   col.toggleSorting(false, false);
                                   setOpenMenuColId(null);
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
                               >
-                                <ArrowUp className="h-3.5 w-3.5 text-slate-400" />
+                                <ArrowUp className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                                 Sort ascending
                               </button>
                               <button
@@ -162,9 +168,9 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                                   col.toggleSorting(true, false);
                                   setOpenMenuColId(null);
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
                               >
-                                <ArrowDown className="h-3.5 w-3.5 text-slate-400" />
+                                <ArrowDown className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                                 Sort descending
                               </button>
                             </>
@@ -177,9 +183,9 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                                 onFilterColumn(col.id);
                                 setOpenMenuColId(null);
                               }}
-                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
                             >
-                              <Filter className="h-3.5 w-3.5 text-indigo-500" />
+                              <Filter className="h-3.5 w-3.5 text-[var(--sift-accent)]" />
                               Filter by column
                             </button>
                           )}
@@ -195,16 +201,16 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                                 );
                                 setOpenMenuColId(null);
                               }}
-                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
                             >
-                              <FolderTree className="h-3.5 w-3.5 text-slate-400" />
+                              <FolderTree className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                               {grid.grouping.includes(col.id)
                                 ? 'Ungroup column'
                                 : 'Group by column'}
                             </button>
                           )}
 
-                          <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                          <div className="my-1 border-t border-[var(--sift-surface-subtle)] dark:border-[var(--sift-ink)]" />
 
                           <button
                             type="button"
@@ -212,12 +218,12 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                               col.pin(pinned === 'start' ? false : 'start');
                               setOpenMenuColId(null);
                             }}
-                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
                           >
                             {pinned === 'start' ? (
-                              <PinOff className="h-3.5 w-3.5 text-slate-400" />
+                              <PinOff className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                             ) : (
-                              <PanelLeft className="h-3.5 w-3.5 text-slate-400" />
+                              <PanelLeft className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                             )}
                             {pinned === 'start' ? 'Unpin column' : 'Pin to start'}
                           </button>
@@ -228,12 +234,12 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                               col.pin(pinned === 'end' ? false : 'end');
                               setOpenMenuColId(null);
                             }}
-                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[var(--sift-ink)] hover:bg-[var(--sift-surface-subtle)] dark:text-[var(--sift-border)] dark:hover:bg-[var(--sift-ink)]"
                           >
                             {pinned === 'end' ? (
-                              <PinOff className="h-3.5 w-3.5 text-slate-400" />
+                              <PinOff className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                             ) : (
-                              <PanelRight className="h-3.5 w-3.5 text-slate-400" />
+                              <PanelRight className="h-3.5 w-3.5 text-[var(--sift-muted)]" />
                             )}
                             {pinned === 'end' ? 'Unpin column' : 'Pin to end'}
                           </button>
@@ -251,7 +257,7 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                               Hide column
                             </button>
                           )}
-                        </div>
+                        </div></SiftPopover>
                       )}
                     </div>
                   )}
@@ -267,8 +273,8 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
                     className={cn(
                       'absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors',
                       col.getIsResizing()
-                        ? 'bg-indigo-500'
-                        : 'bg-transparent hover:bg-indigo-400/60'
+                        ? 'bg-[var(--sift-accent)]'
+                        : 'bg-transparent hover:bg-[var(--sift-accent)]/60'
                     )}
                   />
                 )}
@@ -277,6 +283,25 @@ export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TDat
           })}
         </tr>
       ))}
+      {showHeaderFilters && (
+        <tr aria-label="Column filter inputs" className="border-b border-[var(--sift-border)] bg-white dark:bg-[var(--sift-ink)]">
+          {grid.table.getVisibleLeafColumns().map((column) => {
+            const variant = column.columnDef.meta?.filterVariant ?? 'text';
+            const rule = grid.filterGroup.rules.find((r) => r.columnId === column.id);
+            return <th key={column.id} className="px-2 py-1">
+              {column.id === '__select__' ? null : variant === 'text' || variant === 'number' ? (
+                <input aria-label={`Filter ${column.columnDef.meta?.label ?? column.id}`}
+                  type={variant === 'number' ? 'number' : 'search'}
+                  value={typeof rule?.value === 'string' || typeof rule?.value === 'number' ? String(rule.value) : ''}
+                  onChange={(event) => grid.upsertColumnRule(column.id, variant === 'number' ? 'gte' : 'contains', event.target.value)}
+                  className="w-full min-w-0 rounded border border-[var(--sift-border)] bg-white p-1 text-xs dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]" />
+              ) : (
+                <button type="button" onClick={() => onFilterColumn(column.id)} className="text-xs text-[var(--sift-muted)] hover:text-[var(--sift-accent)]">Filter…</button>
+              )}
+            </th>;
+          })}
+        </tr>
+      )}
     </thead>
   );
 }

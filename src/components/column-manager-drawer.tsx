@@ -28,11 +28,11 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import type { DataGridController } from '../store/use-data-grid';
+import type { SiftController } from '../store/use-data-grid';
 import { cn } from '../utils/cn';
 
 interface ColumnManagerDrawerProps<TData> {
-  grid: DataGridController<TData>;
+  grid: SiftController<TData>;
   open: boolean;
   onClose: () => void;
 }
@@ -102,7 +102,7 @@ export function ColumnManagerDrawer<TData>({
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-950/25 backdrop-blur-[1px] transition-opacity"
+        className="fixed inset-0 bg-[var(--sift-ink)]/25 backdrop-blur-[1px] transition-opacity"
         onClick={onClose}
       />
 
@@ -111,24 +111,24 @@ export function ColumnManagerDrawer<TData>({
         role="dialog"
         aria-label="Column Manager"
         className={cn(
-          'relative z-10 flex h-full w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-2xl',
-          'dark:border-slate-800 dark:bg-slate-950'
+          'relative z-10 flex h-full w-full max-w-sm flex-col border-l border-[var(--sift-border)] bg-white shadow-2xl',
+          'dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]'
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+        <div className="flex items-center justify-between border-b border-[var(--sift-border)] px-5 py-4 dark:border-[var(--sift-ink)]">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="text-sm font-semibold text-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]">
               Column Studio
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[var(--sift-muted)]">
               Toggle, drag to reorder, or pin columns to start/end.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+            className="rounded-lg p-1.5 text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] hover:text-[var(--sift-ink)] dark:hover:bg-[var(--sift-ink)]"
             aria-label="Close Column Studio"
           >
             <X className="h-4 w-4" />
@@ -136,15 +136,15 @@ export function ColumnManagerDrawer<TData>({
         </div>
 
         {/* Search & Quick Toggles */}
-        <div className="space-y-2.5 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
+        <div className="space-y-2.5 border-b border-[var(--sift-surface-subtle)] px-5 py-3 dark:border-[var(--sift-ink)]">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[var(--sift-muted)]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search columns..."
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full rounded-lg border border-[var(--sift-border)] bg-[var(--sift-surface-subtle)] py-1.5 pl-8 pr-3 text-xs text-[var(--sift-ink)] focus:border-[var(--sift-accent)] focus:bg-white focus:outline-none dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]"
             />
           </div>
 
@@ -153,11 +153,11 @@ export function ColumnManagerDrawer<TData>({
               <button
                 type="button"
                 onClick={() => grid.table.toggleAllColumnsVisible(true)}
-                className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                className="font-medium text-[var(--sift-accent)] hover:underline dark:text-[var(--sift-accent)]"
               >
                 Show all
               </button>
-              <span className="text-slate-300">·</span>
+              <span className="text-[var(--sift-border)]">·</span>
               <button
                 type="button"
                 onClick={() => {
@@ -169,7 +169,7 @@ export function ColumnManagerDrawer<TData>({
                   }
                   grid.setColumnVisibility(next);
                 }}
-                className="font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                className="font-medium text-[var(--sift-muted)] hover:text-[var(--sift-ink)] dark:hover:text-[var(--sift-border)]"
               >
                 Hide optional
               </button>
@@ -177,7 +177,7 @@ export function ColumnManagerDrawer<TData>({
             <button
               type="button"
               onClick={grid.resetColumnLayout}
-              className="inline-flex items-center gap-1 font-medium text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+              className="inline-flex items-center gap-1 font-medium text-[var(--sift-muted)] hover:text-[var(--sift-ink)] dark:hover:text-[var(--sift-surface-subtle)]"
             >
               <RotateCcw className="h-3 w-3" />
               Reset
@@ -190,10 +190,10 @@ export function ColumnManagerDrawer<TData>({
           {/* Bucket 1: Shown in Table (Sortable) */}
           <div className="mb-5">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--sift-muted)]">
                 Shown in Table ({visibleColumns.length})
               </span>
-              <span className="text-[10px] text-slate-400">Drag to reorder</span>
+              <span className="text-[10px] text-[var(--sift-muted)]">Drag to reorder</span>
             </div>
 
             <DndContext
@@ -217,14 +217,14 @@ export function ColumnManagerDrawer<TData>({
           {/* Bucket 2: Available to Add */}
           {hiddenColumns.length > 0 && (
             <div>
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--sift-muted)]">
                 Available to Add ({hiddenColumns.length})
               </div>
               <div className="space-y-1.5">
                 {hiddenColumns.map((col) => (
                   <div
                     key={col.id}
-                    className="flex items-center justify-between rounded-lg border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900/40"
+                    className="flex items-center justify-between rounded-lg border border-dashed border-[var(--sift-border)] bg-[var(--sift-surface-subtle)]/70 px-3 py-2 text-xs text-[var(--sift-muted)] dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]/40"
                   >
                     <span className="truncate font-medium">
                       {col.columnDef.meta?.label ?? col.id}
@@ -232,7 +232,7 @@ export function ColumnManagerDrawer<TData>({
                     <button
                       type="button"
                       onClick={() => col.toggleVisibility(true)}
-                      className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-indigo-600 shadow-2xs ring-1 ring-slate-200 hover:bg-indigo-50 dark:bg-slate-950 dark:text-indigo-400 dark:ring-slate-700"
+                      className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-[var(--sift-accent)] shadow-2xs ring-1 ring-[var(--sift-border)] hover:bg-[var(--sift-accent-subtle)] dark:bg-[var(--sift-ink)] dark:text-[var(--sift-accent)] dark:ring-[var(--sift-ink)]"
                     >
                       <Eye className="h-3 w-3" />
                       Add
@@ -270,9 +270,9 @@ function SortableColumnRow({ column }: SortableColumnRowProps) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs shadow-2xs transition-colors',
-        'dark:border-slate-800 dark:bg-slate-900',
-        isDragging && 'z-20 border-indigo-400 shadow-lg ring-2 ring-indigo-500/20'
+        'flex items-center justify-between gap-2 rounded-lg border border-[var(--sift-border)] bg-white px-2.5 py-2 text-xs shadow-2xs transition-colors',
+        'dark:border-[var(--sift-ink)] dark:bg-[var(--sift-ink)]',
+        isDragging && 'z-20 border-[var(--sift-accent)] shadow-lg ring-2 ring-[var(--sift-accent)]/20'
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -280,16 +280,16 @@ function SortableColumnRow({ column }: SortableColumnRowProps) {
           type="button"
           {...attributes}
           {...listeners}
-          className="cursor-grab touch-none text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+          className="cursor-grab touch-none text-[var(--sift-muted)] hover:text-[var(--sift-muted)] active:cursor-grabbing"
           aria-label="Drag to reorder column"
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
-        <span className="truncate font-medium text-slate-800 dark:text-slate-100">
+        <span className="truncate font-medium text-[var(--sift-ink)] dark:text-[var(--sift-surface-subtle)]">
           {column.columnDef.meta?.label ?? column.id}
         </span>
         {pinned && (
-          <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+          <span className="rounded bg-[var(--sift-accent-subtle)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--sift-accent)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]">
             {pinned}
           </span>
         )}
@@ -304,8 +304,8 @@ function SortableColumnRow({ column }: SortableColumnRowProps) {
           className={cn(
             'rounded p-1 transition-colors',
             pinned === 'start'
-              ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800'
+              ? 'bg-[var(--sift-accent-subtle)] text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+              : 'text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] hover:text-[var(--sift-ink)] dark:hover:bg-[var(--sift-ink)]'
           )}
         >
           {pinned === 'start' ? (
@@ -322,8 +322,8 @@ function SortableColumnRow({ column }: SortableColumnRowProps) {
           className={cn(
             'rounded p-1 transition-colors',
             pinned === 'end'
-              ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800'
+              ? 'bg-[var(--sift-accent-subtle)] text-[var(--sift-accent-strong)] dark:bg-[var(--sift-accent-deep)] dark:text-[var(--sift-accent-border)]'
+              : 'text-[var(--sift-muted)] hover:bg-[var(--sift-surface-subtle)] hover:text-[var(--sift-ink)] dark:hover:bg-[var(--sift-ink)]'
           )}
         >
           {pinned === 'end' ? (
@@ -336,7 +336,7 @@ function SortableColumnRow({ column }: SortableColumnRowProps) {
         {locked ? (
           <span
             title="Required column"
-            className="p-1 text-slate-300 dark:text-slate-600"
+            className="p-1 text-[var(--sift-border)] dark:text-[var(--sift-muted)]"
           >
             <Lock className="h-3.5 w-3.5" />
           </span>
@@ -345,7 +345,7 @@ function SortableColumnRow({ column }: SortableColumnRowProps) {
             type="button"
             onClick={() => column.toggleVisibility(false)}
             title="Hide column"
-            className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/60"
+            className="rounded p-1 text-[var(--sift-muted)] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/60"
           >
             <EyeOff className="h-3.5 w-3.5" />
           </button>

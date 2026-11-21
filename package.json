@@ -1,7 +1,7 @@
 {
-  "name": "@your-org/data-grid",
-  "version": "1.0.0",
-  "description": "UX-first, MIT-licensed React & TypeScript data grid powered by TanStack Table V9 with dual-mode filtering, interactive breadcrumbs, and a drag-and-drop column manager.",
+  "name": "@sift-grid/react",
+  "version": "0.1.0",
+  "description": "Sift \u2014 MIT-licensed React data grid for TanStack Table V9",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,7 +10,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./styles.css": "./dist/styles.css"
   },
   "files": [
     "dist",
@@ -18,7 +19,11 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsup && node -e \"require('node:fs').copyFileSync('src/styles.css','dist/styles.css')\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "demo": "vite --host 127.0.0.1"
   },
   "peerDependencies": {
     "react": ">=18.3.0 || >=19.0.0",
@@ -33,11 +38,21 @@
     "@tanstack/react-virtual": "^3.13.6",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
-    "tailwind-merge": "^3.3.0"
+    "tailwind-merge": "^3.3.0",
+    "@floating-ui/react": "^0.27.0",
+    "@tanstack/react-store": "^0.7.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.8.2"
-  }
+    "typescript": "^5.8.2",
+    "tsup": "^8.5.0",
+    "vitest": "^3.2.0",
+    "@playwright/test": "^1.55.0",
+    "vite": "^7.1.0",
+    "@vitejs/plugin-react": "^4.7.0"
+  },
+  "sideEffects": [
+    "./dist/styles.css"
+  ]
 }
