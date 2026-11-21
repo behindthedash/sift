@@ -54,7 +54,7 @@ A sample **optional** PostgreSQL adapter is provided under `src/store/server-ada
 
 ## Release
 
-ESM-only distributable with type declarations and an explicit `'use client'` entrypoint. The npm package is `@sift-grid/react` (rather than the occupied unscoped `sift`), while the component and hook remain `<Sift />` and `useSift`. Publishing requires control of the `@sift-grid` npm scope; package ownership and name availability must be confirmed before a release.
+ESM-only distributable with type declarations and an explicit `'use client'` entrypoint. The package is `@sift-grid/react`, and the component and hook are `<Sift />` and `useSift`. Releases are **manual and staged**: protected `main` is tested and packaged in GitHub Actions, then a maintainer approves the staged package with npm two-factor authentication before it becomes installable. See [release instructions](docs/releasing.md). Merging a PR does not publish a package.
 
 MIT licensing applies to original Sift source; dependencies retain their own licenses. See `LICENSE`.
 

@@ -1,0 +1,107 @@
+name: Stage Sift on npm
+
+# No publishing on push, merge, tag, or release. A maintainer must explicitly run this.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Exact version in package.json, e.g. 0.1.0'
+        type: string
+        required: true
+      confirmation:
+        description: 'Type STAGE to confirm npm upload for maintainer approval'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sift-npm-stage
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Confirm protected-main release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require explicit confirmation on main
+        env:
+          RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REPOSITORY" != "behindthedash/sift" ]; then
+            echo "::error::Only the canonical Sift repository can stage releases."
+            exit 1
+          fi
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow from the protected main branch."
+            exit 1
+          fi
+          if [ "$RELEASE_CONFIRMATION" != "STAGE" ]; then
+            echo "::error::Type STAGE in the confirmation input."
+            exit 1
+          fi
+      - uses: actions/checkout@v6
+      - name: Verify exact version and package name
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (pkg.name !== '@sift-grid/react' || pkg.private === true) {
+            throw new Error('Unexpected package name or private package');
+          }
+          if (!/^\d+\.\d+\.\d+$/.test(process.env.RELEASE_VERSION || '') ||
+              process.env.RELEASE_VERSION !== pkg.version) {
+            throw new Error(`Requested version must exactly match package.json (${pkg.version})`);
+          }
+          console.log(`Verified ${pkg.name}@${pkg.version} on protected main`);
+          NODE
+
+  stage:
+    name: Test, build and stage for npm approval
+    needs: preflight
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # Provenance attestation; supports future OIDC trusted publishing.
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Ensure npm CLI supports staged publishing
+        run: npm install --global npm@11
+      - name: Install dependencies without publishing credentials
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Build the distributable
+        run: npm run build
+      - name: Verify the npm tarball contents
+        run: npm run release:check
+      - name: Install browser for end-to-end checks
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: npm run test:e2e
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Stage package (not publicly installable until approved on npm)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::Repository secret NPM_TOKEN must exist."
+            exit 1
+          fi
+          npm stage publish --access public --provenance --ignore-scripts

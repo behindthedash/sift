@@ -23,7 +23,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "demo": "vite --host 127.0.0.1"
+    "demo": "vite --host 127.0.0.1",
+    "release:check": "node scripts/verify-package.mjs"
   },
   "peerDependencies": {
     "react": ">=18.3.0 || >=19.0.0",
@@ -56,5 +57,17 @@
   },
   "sideEffects": [
     "./dist/styles.css"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/behindthedash/sift.git"
+  },
+  "homepage": "https://github.com/behindthedash/sift#readme",
+  "bugs": {
+    "url": "https://github.com/behindthedash/sift/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }
