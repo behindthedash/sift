@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React, { useMemo, useRef, useState } from 'react';
 import { flexRender, type ColumnDef } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -26,7 +27,7 @@ import { cn } from '../utils/cn';
 import { encodeTsv, parseTsv } from '../utils/tsv';
 import { summarizeColumn } from '../utils/summary';
 
-export interface SiftProps<TData> extends UseSiftOptions<TData> {
+export interface SiftProps<TData extends RowData> extends UseSiftOptions<TData> {
   title?: string;
   className?: string;
   /** Enable row selection checkboxes (supports Shift+Click range selection natively in TanStack V9) */
@@ -59,7 +60,7 @@ const DENSITY_CELL_PADDING: Record<GridDensity, string> = {
   spacious: 'py-4',
 };
 
-export function Sift<TData>(props: SiftProps<TData>) {
+export function Sift<TData extends RowData>(props: SiftProps<TData>) {
   const {
     title,
     className,

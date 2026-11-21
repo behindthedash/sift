@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
@@ -12,7 +13,7 @@ import type { FilterOption, FilterVariant } from '../types/grid.types';
 import { cn } from '../utils/cn';
 import { SiftPopover } from './sift-popover';
 
-interface FilterCommandMenuProps<TData> {
+interface FilterCommandMenuProps<TData extends RowData> {
   grid: SiftController<TData>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -21,7 +22,7 @@ interface FilterCommandMenuProps<TData> {
   anchor?: HTMLElement | null;
 }
 
-export function FilterCommandMenu<TData>({
+export function FilterCommandMenu<TData extends RowData>({
   grid,
   open,
   onOpenChange,

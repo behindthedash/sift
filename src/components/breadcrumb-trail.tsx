@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React, { useState } from 'react';
 import {
   ChevronRight,
@@ -19,7 +20,7 @@ import { isRuleActive } from '../store/filter-engine';
 import { cn } from '../utils/cn';
 import { SiftPopover } from './sift-popover';
 
-interface BreadcrumbTrailProps<TData> {
+interface BreadcrumbTrailProps<TData extends RowData> {
   grid: SiftController<TData>;
   onOpenQuickFilter: (columnId?: string) => void;
   onOpenRuleBuilder: () => void;
@@ -32,7 +33,7 @@ interface BreadcrumbTrailProps<TData> {
  * 2. Renders Linear/Notion compound filter pills where clicking the operator switches
  *    logic inline and clicking the value opens that column's faceted editor.
  */
-export function BreadcrumbTrail<TData>({
+export function BreadcrumbTrail<TData extends RowData>({
   grid,
   onOpenQuickFilter,
   onOpenRuleBuilder,

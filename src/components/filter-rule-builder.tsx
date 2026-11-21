@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import type { SiftController } from '../store/use-data-grid';
@@ -11,7 +12,7 @@ import {
 } from '../types/grid.types';
 import { cn } from '../utils/cn';
 
-interface FilterRuleBuilderProps<TData> {
+interface FilterRuleBuilderProps<TData extends RowData> {
   grid: SiftController<TData>;
   open: boolean;
   onClose: () => void;
@@ -21,7 +22,7 @@ interface FilterRuleBuilderProps<TData> {
  * Notion-style multi-condition Advanced Filter Builder supporting AND/OR combinators,
  * full operator switching, and typed value inputs synced directly into the breadcrumb trail.
  */
-export function FilterRuleBuilder<TData>({
+export function FilterRuleBuilder<TData extends RowData>({
   grid,
   open,
   onClose,
@@ -129,7 +130,7 @@ export function FilterRuleBuilder<TData>({
   );
 }
 
-interface FilterRuleRowProps<TData> {
+interface FilterRuleRowProps<TData extends RowData> {
   rule: FilterRule;
   index: number;
   combinator: FilterCombinator;
@@ -137,7 +138,7 @@ interface FilterRuleRowProps<TData> {
   filterableColumns: ReturnType<SiftController<TData>['table']['getAllLeafColumns']>;
 }
 
-function FilterRuleRow<TData>({
+function FilterRuleRow<TData extends RowData>({
   rule,
   index,
   combinator,

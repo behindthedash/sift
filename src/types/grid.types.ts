@@ -6,7 +6,7 @@ import type {
   GroupingState,
   PaginationState,
   SortingState,
-  VisibilityState,
+  ColumnVisibilityState,
 } from '@tanstack/react-table';
 
 export type FilterVariant =
@@ -106,7 +106,7 @@ export interface SavedGridView {
     globalFilter: string;
     filterGroup: FilterGroupState;
     sorting: SortingState;
-    columnVisibility: VisibilityState;
+    columnVisibility: ColumnVisibilityState;
     columnOrder: ColumnOrderState;
     columnPinning: ColumnPinningState;
     grouping: GroupingState;
@@ -148,7 +148,7 @@ export interface SiftStateSnapshot {
   globalFilter: string;
   filterGroup: FilterGroupState;
   sorting: SortingState;
-  columnVisibility: VisibilityState;
+  columnVisibility: ColumnVisibilityState;
   columnOrder: ColumnOrderState;
   columnPinning: ColumnPinningState;
   columnSizing: ColumnSizingState;

@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React from 'react';
 import {
   ChevronLeft,
@@ -7,16 +8,16 @@ import {
 } from 'lucide-react';
 import type { SiftController } from '../store/use-data-grid';
 
-interface GridPaginationProps<TData> {
+interface GridPaginationProps<TData extends RowData> {
   grid: SiftController<TData>;
   pageSizeOptions?: number[];
 }
 
-export function GridPagination<TData>({
+export function GridPagination<TData extends RowData>({
   grid,
   pageSizeOptions = [10, 25, 50, 100],
 }: GridPaginationProps<TData>) {
-  const { pageIndex, pageSize } = grid.table.state.pagination;
+  const { pageIndex, pageSize } = grid.pagination;
   const totalFiltered = grid.table.getRowCount();
   const pageCount = Math.max(1, grid.table.getPageCount());
   const startRow = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;

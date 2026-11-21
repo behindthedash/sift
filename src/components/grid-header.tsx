@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React, { useState } from 'react';
 import { flexRender } from '@tanstack/react-table';
 import {
@@ -16,7 +17,7 @@ import type { SiftController } from '../store/use-data-grid';
 import { cn } from '../utils/cn';
 import { SiftPopover } from './sift-popover';
 
-interface GridHeaderProps<TData> {
+interface GridHeaderProps<TData extends RowData> {
   grid: SiftController<TData>;
   onFilterColumn: (columnId: string) => void;
   showHeaderFilters?: boolean;
@@ -29,10 +30,10 @@ interface GridHeaderProps<TData> {
  * - Edge resize handle with double-click auto-reset
  * - TanStack Table V9 logical 'start' / 'end' sticky pinning with elevation shadows
  */
-export function GridHeader<TData>({ grid, onFilterColumn }: GridHeaderProps<TData>) {
+export function GridHeader<TData extends RowData>({ grid, onFilterColumn, showHeaderFilters = false }: GridHeaderProps<TData>) {
   const [openMenuColId, setOpenMenuColId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const sorting = grid.table.state.sorting;
+  const sorting = grid.sorting;
 
   return (
     <thead className="sticky top-0 z-20 bg-[var(--sift-surface-subtle)]/95 backdrop-blur-xs dark:bg-[var(--sift-ink)]/95">

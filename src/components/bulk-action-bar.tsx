@@ -1,10 +1,11 @@
+import type { RowData } from '@tanstack/react-table';
 import React from 'react';
 import { X } from 'lucide-react';
 import type { SiftController } from '../store/use-data-grid';
 import type { BulkAction } from '../types/grid.types';
 import { cn } from '../utils/cn';
 
-interface BulkActionBarProps<TData> {
+interface BulkActionBarProps<TData extends RowData> {
   grid: SiftController<TData>;
   actions?: BulkAction<TData>[];
 }
@@ -13,7 +14,7 @@ interface BulkActionBarProps<TData> {
  * Floating Linear/TableCN-inspired selection dock anchored to the bottom of the viewport
  * whenever one or more rows are selected.
  */
-export function BulkActionBar<TData>({
+export function BulkActionBar<TData extends RowData>({
   grid,
   actions = [],
 }: BulkActionBarProps<TData>) {

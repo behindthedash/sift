@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCreateAtom } from '@tanstack/react-store';
 import {
   useTable,
+  type RowData,
   type ColumnDef,
   type ColumnFiltersState,
   type ColumnOrderState,
@@ -12,7 +13,7 @@ import {
   type PaginationState,
   type RowSelectionState,
   type SortingState,
-  type VisibilityState,
+  type ColumnVisibilityState,
 } from '@tanstack/react-table';
 import { siftFeatures, type SiftFeatures } from '../features/grid-features';
 import {
@@ -34,7 +35,7 @@ import type {
 } from '../types/grid.types';
 import { getDefaultOperator } from '../types/grid.types';
 
-export interface UseSiftOptions<TData> {
+export interface UseSiftOptions<TData extends RowData> {
   /** In-memory JSON/JavaScript objects. No backend or SQL required. */
   data?: TData[];
   /** Optional async adapter for JSON APIs, GraphQL, document stores or SQL-backed services. */
@@ -78,7 +79,7 @@ function createBrowserUrlAdapter(): SiftUrlAdapter {
   };
 }
 
-export function useSift<TData>(options: UseSiftOptions<TData>) {
+export function useSift<TData extends RowData>(options: UseSiftOptions<TData>) {
   const {
     data,
     dataSource,
@@ -106,7 +107,7 @@ export function useSift<TData>(options: UseSiftOptions<TData>) {
 
   // Derive default column visibility & order from ColumnMeta
   const defaultColumnMeta = useMemo(() => {
-    const visibility: VisibilityState = {};
+    const visibility: ColumnVisibilityState = {};
     const order: ColumnOrderState = [];
 
     for (const col of columns) {
@@ -145,7 +146,7 @@ export function useSift<TData>(options: UseSiftOptions<TData>) {
     rules: hydrated.rules ?? [],
   });
   const [sorting, setSorting] = useState<SortingState>(hydrated.sort ?? []);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(
     defaultColumnMeta.visibility
   );
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(defaultColumnMeta.order);
@@ -196,7 +197,7 @@ export function useSift<TData>(options: UseSiftOptions<TData>) {
       ...col,
       filterFn: col.filterFn ?? ('smartRule' as const),
       // Calculated accessorFns also reflect optimistic inline edits.
-      ...('accessorFn' in col && col.accessorFn && (col.id || 'accessorKey' in col)
+      ...('accessorFn' in col && (col.id || 'accessorKey' in col)
         ? { accessorFn: (row: TData, index: number) => {
             const id = getRowId?.(row, index) ?? String(index);
             const value = optimistic[id]?.[col.id ?? ''];
@@ -251,7 +252,7 @@ export function useSift<TData>(options: UseSiftOptions<TData>) {
     return Array.from(grouped.entries()).map(([id, value]) => ({ id, value }));
   }, [filterGroup]);
 
-  const table = useTable({
+  const table = useTable<SiftFeatures, TData, null>({
     features: siftFeatures,
     data: processedData,
     columns: enhancedColumns,
@@ -549,6 +550,8 @@ export function useSift<TData>(options: UseSiftOptions<TData>) {
     setGlobalFilter,
     filterGroup,
     setFilterGroup,
+    sorting,
+    pagination,
     density,
     setDensity,
     grouping,
@@ -582,4 +585,4 @@ export function useSift<TData>(options: UseSiftOptions<TData>) {
 }
 
 export { createBrowserUrlAdapter };
-export type SiftController<TData> = ReturnType<typeof useSift<TData>>;
+export type SiftController<TData extends RowData> = ReturnType<typeof useSift<TData>>;

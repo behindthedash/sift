@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Bookmark,
@@ -17,7 +18,7 @@ import { FilterCommandMenu } from './filter-command-menu';
 import { cn } from '../utils/cn';
 import { SiftPopover } from './sift-popover';
 
-interface GridToolbarProps<TData> {
+interface GridToolbarProps<TData extends RowData> {
   grid: SiftController<TData>;
   title?: string;
   exportFilename?: string;
@@ -31,7 +32,7 @@ interface GridToolbarProps<TData> {
   onToggleHeaderFilters: () => void;
 }
 
-export function GridToolbar<TData>({
+export function GridToolbar<TData extends RowData>({
   grid,
   title,
   exportFilename = 'export.csv',

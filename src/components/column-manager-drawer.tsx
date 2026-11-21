@@ -1,3 +1,4 @@
+import type { RowData } from '@tanstack/react-table';
 import React, { useMemo, useState } from 'react';
 import {
   DndContext,
@@ -31,7 +32,7 @@ import {
 import type { SiftController } from '../store/use-data-grid';
 import { cn } from '../utils/cn';
 
-interface ColumnManagerDrawerProps<TData> {
+interface ColumnManagerDrawerProps<TData extends RowData> {
   grid: SiftController<TData>;
   open: boolean;
   onClose: () => void;
@@ -43,7 +44,7 @@ interface ColumnManagerDrawerProps<TData> {
  * Visible vs. Available buckets, @dnd-kit drag-and-drop column reordering,
  * and TanStack Table V9 logical 'start' / 'end' sticky pinning controls.
  */
-export function ColumnManagerDrawer<TData>({
+export function ColumnManagerDrawer<TData extends RowData>({
   grid,
   open,
   onClose,
