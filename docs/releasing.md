@@ -37,7 +37,7 @@ The automatic pipeline:
 
 ## Manual fallback
 
-The **Actions → Publish Sift to npm → Run workflow** action can be run on `main` with the exact `package.json.version` and `STAGE` confirmation input. The old input name is retained for compatibility, but **it now publishes publicly**. It does not create a private stage.
+The **Actions → Publish Sift to npm → Run workflow** action can be run on `main` with the exact `package.json.version` and the exact confirmation text `PUBLISH`. **This publishes publicly**, so use only when you intend to release. It does not create a private stage.
 
 ## Security after validation
 
