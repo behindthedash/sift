@@ -1,7 +1,7 @@
-name: Stage Sift on npm
+name: Publish Sift to npm
 
-# Protected main automatically stages only the first release or a changed package version.
-# Final publication still requires separate npm maintainer 2FA approval.
+# Protected main publishes version bumps using npm Trusted Publishing (OIDC).
+# Every version runs through validation before automatic public publication.
 on:
   push:
     branches: [main]
@@ -15,7 +15,7 @@ on:
         type: string
         required: true
       confirmation:
-        description: 'Type STAGE to explicitly stage this version'
+        description: 'Type PUBLISH to authorize direct npm publication'
         type: string
         required: true
 
@@ -23,12 +23,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: sift-npm-stage
+  group: sift-npm-publish
   cancel-in-progress: false
 
 jobs:
   preflight:
-    name: Detect first release or version bump
+    name: Detect npm release version bump
     runs-on: ubuntu-latest
     outputs:
       should_stage: ${{ steps.release.outputs.should_stage }}
@@ -60,9 +60,9 @@ jobs:
 
           let shouldStage = false;
           if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
-            if (process.env.RELEASE_CONFIRMATION !== 'STAGE' ||
+            if (process.env.RELEASE_CONFIRMATION !== 'PUBLISH' ||
                 process.env.RELEASE_VERSION !== pkg.version) {
-              throw new Error('Manual release requires STAGE and the exact package.json version');
+              throw new Error('Manual release requires PUBLISH and the exact package.json version');
             }
             shouldStage = true;
           } else if (process.env.GITHUB_EVENT_NAME === 'push') {
@@ -97,12 +97,12 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT,
             `should_stage=${shouldStage}\nversion=${pkg.version}\n`);
           console.log(shouldStage
-            ? `Staging candidate: ${pkg.name}@${pkg.version} (npm approval required)`
-            : `No version change: skipping staging for ${pkg.name}@${pkg.version}`);
+            ? `Release candidate: ${pkg.name}@${pkg.version} (OIDC direct publish)`
+            : `No version change: skipping publication for ${pkg.name}@${pkg.version}`);
           NODE
 
   stage:
-    name: Test, build and automatically stage for npm approval
+    name: Test, build and publish new npm version
     if: needs.preflight.outputs.should_stage == 'true'
     needs: preflight
     runs-on: ubuntu-latest
@@ -112,11 +112,12 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
-      - name: Use npm CLI with staged publishing support
+      - name: Use current npm CLI with trusted-publishing support
         run: npm install --global npm@11
       - name: Install dependencies without publishing credentials
         run: npm install --no-audit --no-fund
@@ -132,46 +133,41 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser tests
         run: npm run test:e2e
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false
-      - name: Check for an existing published or staged version
+      # Check public registry metadata with no npm secrets or tokens.
+      # This prevents accidental republishing of the same immutable version.
+      - name: Skip versions already published on npm
         id: version_check
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
-          set -euo pipefail
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::error::Repository secret NPM_TOKEN must exist."
-            exit 1
-          fi
-          npm stage list '@sift-grid/react' --json > "$RUNNER_TEMP/sift-stages.json"
-          npm view "@sift-grid/react@${RELEASE_VERSION}" version --json \
-            > "$RUNNER_TEMP/sift-published.json" 2>/dev/null || true
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const staged = JSON.parse(fs.readFileSync(
-            `${process.env.RUNNER_TEMP}/sift-stages.json`, 'utf8'));
-          const items = Array.isArray(staged) ? staged : staged.items;
-          if (!Array.isArray(items)) {
-            throw new Error('Unexpected npm stage list response, refusing to publish');
+          const packageName = '@sift-grid/react';
+          const version = process.env.RELEASE_VERSION;
+          const registryUrl = `https://registry.npmjs.org/${encodeURIComponent(packageName)}`;
+          const response = await fetch(registryUrl, {
+            headers: { Accept: 'application/vnd.npm.install-v1+json' },
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!response.ok) {
+            throw new Error(`npm registry version check failed (${response.status}); refusing to publish`);
           }
-          const alreadyStaged = items.some((item) =>
-            item.packageName === '@sift-grid/react' &&
-            item.version === process.env.RELEASE_VERSION);
-          const text = fs.readFileSync(
-            `${process.env.RUNNER_TEMP}/sift-published.json`, 'utf8').trim();
-          const alreadyPublished = text.length > 0 &&
-            JSON.parse(text) === process.env.RELEASE_VERSION;
-          const skip = alreadyStaged || alreadyPublished;
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `skip_stage=${skip}\n`);
-          if (skip) console.log('Version is already staged or published; skipping duplicate.');
+          const metadata = await response.json();
+          if (metadata.name !== packageName || !metadata.versions || typeof metadata.versions !== 'object') {
+            throw new Error('Unexpected npm registry metadata; refusing to stage');
+          }
+          const alreadyPublished = Object.hasOwn(metadata.versions, version);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,
+            `skip_stage=${alreadyPublished}\n`);
+          console.log(alreadyPublished
+            ? `${packageName}@${version} is already public; skipping`
+            : `${packageName}@${version} is not yet public; proceeding with OIDC publication`);
           NODE
-      - name: Stage new version for npm maintainer approval
+      - name: Publish with npm trusted publishing (OIDC)
         if: steps.version_check.outputs.skip_stage != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm stage publish --access public --provenance --ignore-scripts
+        run: |
+          set -euo pipefail
+          # GitHub's ephemeral OIDC identity is exchanged by npm CLI itself.
+          # npm must allow direct publishing for this exact workflow + environment.
+          # No legacy token fallback and no manual npm approval step.
+          npm publish --access public --provenance --ignore-scripts
