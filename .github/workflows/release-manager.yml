@@ -1,0 +1,44 @@
+name: Sift Release Manager
+
+# Proposes Conventional Commit version bumps and CHANGELOG updates.
+# Uses protected PRs plus explicitly dispatched checks: GITHUB_TOKEN-created PRs
+# do not reliably trigger the normal pull_request workflows.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: sift-autonomous-release-manager
+  cancel-in-progress: false
+
+jobs:
+  release-manager:
+    if: github.repository == 'behindthedash/sift' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Propose semver and changelog update
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
+      - name: Run release PR checks, merge through protected main, dispatch OIDC publication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release-coordinator.mjs
