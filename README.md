@@ -57,3 +57,7 @@ A sample **optional** PostgreSQL adapter is provided under `src/store/server-ada
 ESM-only distributable with type declarations and an explicit `'use client'` entrypoint. The npm package is `@sift-grid/react` (rather than the occupied unscoped `sift`), while the component and hook remain `<Sift />` and `useSift`. Publishing requires control of the `@sift-grid` npm scope; package ownership and name availability must be confirmed before a release.
 
 MIT licensing applies to original Sift source; dependencies retain their own licenses. See `LICENSE`.
+
+### Running the interactive demo
+
+The demo uses Tailwind CSS v4 via Vite and `@tailwindcss/vite`. Run `npm install` then `npm run demo`. Consumer apps should include the Sift source files in their Tailwind CSS content scanning and import `@sift-grid/react/styles.css` for theme tokens.

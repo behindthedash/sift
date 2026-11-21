@@ -1,7 +1,7 @@
 {
   "name": "@sift-grid/react",
   "version": "0.1.0",
-  "description": "Sift \u2014 MIT-licensed React data grid for TanStack Table V9",
+  "description": "Sift — MIT-licensed React data grid for TanStack Table V9",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -50,7 +50,9 @@
     "vitest": "^3.2.0",
     "@playwright/test": "^1.55.0",
     "vite": "^7.1.0",
-    "@vitejs/plugin-react": "^4.7.0"
+    "@vitejs/plugin-react": "^4.7.0",
+    "tailwindcss": "^4.1.0",
+    "@tailwindcss/vite": "^4.1.0"
   },
   "sideEffects": [
     "./dist/styles.css"
