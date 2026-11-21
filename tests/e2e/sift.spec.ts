@@ -17,6 +17,7 @@ test('advanced rule creates and clears a breadcrumb filter pill', async ({ page 
 });
 
 test('Column Studio supports pointer drag-and-drop', async ({ page }) => {
+  page.on('console', message => console.log('BROWSER', message.text()));
   await page.getByRole('button', { name: /Columns/ }).click({ timeout: 8000 });
   const drawer = page.getByRole('dialog', { name: 'Column Manager' });
   await expect(drawer.getByText(/Shown in Table/)).toBeVisible({ timeout: 8000 });
@@ -32,6 +33,7 @@ test('Column Studio supports pointer drag-and-drop', async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(second!.x + second!.width / 2, second!.y + second!.height / 2, { steps: 12 });
   await page.mouse.up();
+  console.log('DRAG_DIAGNOSTIC', { beforeFirst, first, second, after: await handles.nth(2).locator('..').innerText() });
   await expect.poll(async () => handles.nth(2).locator('..').innerText(), { timeout: 8000 })
     .not.toBe(beforeFirst);
 });
